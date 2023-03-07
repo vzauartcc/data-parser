@@ -10,6 +10,7 @@ import AtcOnline from './models/AtcOnline.js';
 import PilotOnline from './models/PilotOnline.js';
 import Pireps from './models/Pireps.js';
 import ControllerHours from './models/ControllerHours.js';
+import User from './models/User.js';
 
 dotenv.config();
 
@@ -104,11 +105,17 @@ const pollVatsim = async () => {
 
 	const dataNeighbors = [];
 
+	
+
 	for(const controller of data.controllers) { // Get all controllers that are online in ARTCC's airspace
 		if(atcPos.includes(controller.callsign.slice(0, 3)) && controller.callsign[3] === "_" && controller.callsign !== "PRC_FSS" && controller.facility !== 0) {
+
+			const user = await User.findOne({cid: controller.cid});
+			const controllerName = user ? `${user.fname} ${user.lname}` : controller.name;
+
 			await AtcOnline.create({
 				cid: controller.cid,
-				name: controller.name,
+				name: controllerName,
 				rating: controller.rating,
 				pos: controller.callsign,
 				timeStart: controller.logon_time,
