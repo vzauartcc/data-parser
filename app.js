@@ -146,8 +146,8 @@ const pollVatsim = async () => {
 					pos: controller.callsign,
 					timeStart: controller.logon_time,
 					atis: controller.text_atis ? controller.text_atis.join(' - ') : '',
-					frequency: controller.frequency}]
-				let datatata = JSON.stringify(datata)
+					frequency: controller.frequency}];
+				let datatata = JSON.stringify(datata);
 
 				redis.lpush(queueName, datatata, (error) => {
 					if (error) {
