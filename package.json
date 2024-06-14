@@ -11,7 +11,7 @@
   ],
   "license": "CC BY-NC-SA 4.0",
   "dependencies": {
-    "axios": "^0.24.0",
+    "axios": "^1.7.2",
     "dotenv": "^10.0.0",
     "ioredis": "^4.28.1",
     "mongoose": "^6.0.13",

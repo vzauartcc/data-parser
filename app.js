@@ -33,16 +33,28 @@ const neighbors = ['ZID', 'ZMP', 'ZOB', 'ZKC'];
 const airspace = [[27.95500000,-82.38333333],[27.95000000,-82.93833333],[28.15500000,-83.20500000],[28.40000000,-83.51666667],[28.55000000,-84.01666667],[28.16666667,-84.50000000],[28.05766667,-84.60950000],[28.03333333,-84.95000000],[27.50000000,-85.25000000],[27.00000000,-86.00000000],[26.60166667,-85.40833333],[26.20000000,-85.08833333],[25.03350000,-84.99316667],[24.00000000,-84.99316667],[24.00000000,-79.96638889],[24.00000000,-78.00000000],[22.58823657,-76.00000180],[22.00000000,-75.16666667],[20.00000000,-73.33333306],[20.41666667,-73.00000000],[20.41666667,-70.50000000],[19.64999972,-69.15000000],[21.23916639,-67.65055556],[25.00000000,-68.49250000],[25.00000000,-72.55205764],[25.00000000,-73.20000000],[27.83333306,-74.83333306],[27.83333306,-76.26444444],[28.18633333,-76.37600000],[29.76666667,-76.91750000],[30.00000000,-77.00000000],[30.00000000,-77.03333333],[30.05500000,-77.50000000],[30.09083333,-77.92066667],[30.15000000,-78.56666667],[30.15500000,-78.66666667],[30.20166667,-79.18416667]];
 
 mongoose.set('toJSON', {virtuals: true});
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-const db = mongoose.connection;
-db.once('open', () => console.log('Successfully connected to MongoDB'));
+mongoose.set('strictQuery', true);
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+	.then(() => console.log('Successfully connected to MongoDB'))
+	.catch(err => console.error('MongoDB connection error:', err));
 
 const pollVatsim = async () => {
 	await AtcOnline.deleteMany({}).exec();
 	await PilotOnline.deleteMany({}).exec();
 	
 	console.log("Fetching data from VATSIM.");
-	const {data} = await axios.get('https://data.vatsim.net/v3/vatsim-data.json');
+	
+	let data;
+	try {
+		const response = await axios.get('https://data.vatsim.net/v3/vatsim-data.json');
+		data = response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error)) {
+			console.error('Axios error:', error.message);
+		} else {
+			console.error('Unexpected error:', error);
+		}
+	}
 
 	// PILOTS
 	
@@ -73,7 +85,7 @@ const pollVatsim = async () => {
 
 			dataPilots.push(pilot.callsign);
 			
-			redis.hmset(`PILOT:${pilot.callsign}`,
+			redis.hset(`PILOT:${pilot.callsign}`,
 				'callsign', pilot.callsign,
 				'lat', `${pilot.latitude}`,
 				'lng', `${pilot.longitude}`,
@@ -89,7 +101,7 @@ const pollVatsim = async () => {
 		}
 	}
 
-	for(const pilot of redisPilots) {
+	for (const pilot of redisPilots) {
 		if(!dataPilots.includes(pilot)) {
 			redis.publish('PILOT:DELETE', pilot);
 		}
@@ -171,7 +183,7 @@ const pollVatsim = async () => {
 		}
 	}
 
-	for(const atc of redisControllers) {
+	for (const atc of redisControllers) {
 		if(!dataControllers.includes(atc)) {
 			const queueName1 = '1231231231231231231231';
 
@@ -196,8 +208,17 @@ const pollVatsim = async () => {
 	// METARS
 
 	const airportsString = airports.join(","); // Get all METARs, add to database
-	const response = await axios.get(`https://metar.vatsim.net/${airportsString}`);
-	const metars = response.data.split("\n");
+	let metars = [];
+	try {
+		const response = await axios.get(`https://metar.vatsim.net/${airportsString}`);
+		metars = response.data.split("\n");
+	} catch (error) {
+		if (axios.isAxiosError(error)) {
+			console.error('Axios error:', error.message);
+		} else {
+			console.error('Unexpected error:', error);
+		}
+	}
 
 	for(const metar of metars) {
 		redis.set(`METAR:${metar.slice(0,4)}`, metar);
