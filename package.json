@@ -1,14 +1,19 @@
 {
   "name": "datafile-parser",
   "version": "1.0.0",
-  "description": "Data file parser for the ZAB web stack that parses data from the various used sources.",
+  "description": "Data file parser for the ZAU web stack that parses data from the various used sources.",
   "main": "app.js",
   "type": "module",
-  "author": "Albuquerque ARTCC",
+  "author": "Chicago ARTCC",
   "contributors": [
     "Alexandra Robison",
-    "Daan Janssen"
+    "Daan Janssen",
+    "Timothy Barker",
+    "Ryan Savara"
   ],
+  "scripts": {
+    "start:ryan": "doppler run -p data-parser -c dev_ryan -- node app.js"
+  },
   "license": "CC BY-NC-SA 4.0",
   "dependencies": {
     "axios": "^0.24.0",
