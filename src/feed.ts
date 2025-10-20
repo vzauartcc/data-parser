@@ -22,7 +22,7 @@ export async function fetchPilots(redis: Redis) {
 	try {
 		await PilotOnlineModel.deleteMany({}).exec();
 
-		fetch('https://data.vatsim.net/v3/vatsim-data.json', {
+		fetch(`https://data.vatsim.net/v3/vatsim-data.json?t=${Date.now()}`, {
 			method: 'GET',
 			headers: {
 				'Content-Type': 'application/json',
@@ -107,7 +107,7 @@ export async function fetchControllers(redis: Redis) {
 	try {
 		await AtcOnlineModel.deleteMany({}).exec();
 
-		fetch('https://live.env.vnas.vatsim.net/data-feed/controllers.json')
+		fetch(`https://live.env.vnas.vatsim.net/data-feed/controllers.json?t=${Date.now()}`)
 			.then((response) => response.json())
 			.then(async (data) => {
 				const vatsimData = data as IControllerFeed;
@@ -227,7 +227,7 @@ export async function fetchAtises(redis: Redis) {
 	try {
 		await PilotOnlineModel.deleteMany({}).exec();
 
-		fetch('https://data.vatsim.net/v3/vatsim-data.json', {
+		fetch(`https://data.vatsim.net/v3/vatsim-data.json?t=${Date.now()}`, {
 			method: 'GET',
 			headers: {
 				'Content-Type': 'application/json',
