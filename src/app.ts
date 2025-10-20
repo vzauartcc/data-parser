@@ -27,7 +27,10 @@ mongoose.connect(process.env['MONGO_URI']);
 mongoose.connection.once('open', () => {
 	console.log(`Connected to database, scheduling next task run. . . .`);
 
+	// 15 second updates
 	new Cron('*/15 * * * * *', () => doWork());
+
+	// 2 minute updates
 	new Cron('*/2 * * * *', () => fetchPireps());
 });
 

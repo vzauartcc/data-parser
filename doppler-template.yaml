@@ -27,17 +27,17 @@ projects:
       dev:
         MONGO_URI: ''
         REDIS_URI: '${api.dev.REDIS_URI}'
-        ZAB_API_KEY: '${api.dev.MICRO_ACCESS_KEY}'
-        ZAB_API_URL: ''
+        ZAU_API_KEY: '${api.dev.MICRO_ACCESS_KEY}'
+        ZAU_API_URL: ''
 
       stg:
         MONGO_URI: '${api.stg.MONGO_URI}'
         REDIS_URI: '${api.stg.REDIS_URI}'
-        ZAB_API_KEY: '${api.stg.MICRO_ACCESS_KEY}'
-        ZAB_API_URL: ''
+        ZAU_API_KEY: '${api.stg.MICRO_ACCESS_KEY}'
+        ZAU_API_URL: ''
 
       prd:
         MONGO_URI: '${api.prd.MONGO_URI}'
         REDIS_URI: '${api.prd.REDIS_URI}'
-        ZAB_API_KEY: '${api.prd.MICRO_ACCESS_KEY}'
-        ZAB_API_URL: ''
+        ZAU_API_KEY: '${api.prd.MICRO_ACCESS_KEY}'
+        ZAU_API_URL: ''
