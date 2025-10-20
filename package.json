@@ -1,29 +1,39 @@
 {
-  "name": "datafile-parser",
-  "version": "1.0.0",
-  "description": "Data file parser for the ZAU web stack that parses data from the various used sources.",
-  "main": "app.js",
-  "type": "module",
-  "author": "Chicago ARTCC",
-  "contributors": [
-    "Alexandra Robison",
-    "Daan Janssen",
-    "Timothy Barker",
-    "Ryan Savara"
-  ],
-  "scripts": {
-    "start:ryan": "doppler run -p data-parser -c dev_ryan -- node app.js"
-  },
-  "license": "CC BY-NC-SA 4.0",
-  "dependencies": {
-    "axios": "^0.24.0",
-    "dotenv": "^10.0.0",
-    "ioredis": "^4.28.1",
-    "mongoose": "^6.0.13",
-    "node-schedule": "^2.0.0",
-    "point-in-polygon": "^1.1.0"
-  },
-  "devDependencies": {
-    "eslint": "^8.3.0"
-  }
+	"name": "datafile-parser",
+	"version": "2.0.0",
+	"description": "Data file parser for the ZAU web stack that parses data from the various used sources.",
+	"type": "module",
+	"author": "Chicago ARTCC",
+	"contributors": [
+		"Alexandra Robison",
+		"Daan Janssen",
+		"Timothy Barker",
+		"Ryan Savara"
+	],
+	"scripts": {
+		"start:ryan": "doppler run -p data-parser -c dev_ryan -- npx tsx src/app.ts",
+		"lint": "eslint . --fix",
+		"format": "prettier --write .",
+		"build": "tsc"
+	},
+	"license": "CC BY-NC-SA 4.0",
+	"dependencies": {
+		"croner": "^9.1.0",
+		"ioredis": "^5.8.1",
+		"mongoose": "^8.19.1",
+		"mongoose-lean-virtuals": "^2.0.0"
+	},
+	"devDependencies": {
+		"@eslint/eslintrc": "^3.3.1",
+		"@eslint/js": "^9.37.0",
+		"@types/node": "^24.8.0",
+		"@typescript-eslint/eslint-plugin": "^8.46.1",
+		"@typescript-eslint/parser": "^8.46.1",
+		"eslint": "^9.37.0",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-prettier": "^5.5.4",
+		"prettier": "^3.6.2",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.9.3"
+	}
 }
