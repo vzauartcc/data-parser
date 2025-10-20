@@ -25,8 +25,8 @@ jobs:
         with:
           push: true
           tags: |
-            ghcr.io/vzauartcc/api:${{ github.sha }}
-            ghcr.io/vzauartcc/api:latest
+            ghcr.io/vzauartcc/data-parser:${{ github.sha }}
+            ghcr.io/vzauartcc/data-parser:latest
 
   Deploy-to-Staging:
     needs: Build-and-Push
@@ -43,7 +43,7 @@ jobs:
         run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 zau-k8s
 
       - name: Deploy image to cluster
-        run: kubectl set image deployment/api-dev api-dev=ghcr.io/vzauartcc/api:${{ github.sha }} --record -n zau-staging-web-stack
+        run: kubectl set image deployment/data-parser-dev data-parser-dev=ghcr.io/vzauartcc/data-parser:${{ github.sha }} --record -n zau-staging-web-stack
 
       - name: Verify deployment
-        run: kubectl rollout status deployment/api-dev -n zau-staging-web-stack
+        run: kubectl rollout status deployment/data-parser-dev -n zau-staging-web-stack
