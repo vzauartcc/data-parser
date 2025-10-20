@@ -44,6 +44,8 @@ export async function fetchPilots(redis: Redis) {
 				for (const pilot of vatsimData.pilots) {
 					if (
 						pilot.flight_plan &&
+						pilot.flight_plan.aircraft_faa &&
+						pilot.flight_plan.altitude &&
 						(airports.includes(pilot.flight_plan.departure) ||
 							airports.includes(pilot.flight_plan.departure) ||
 							isPointInPolygon([pilot.longitude, pilot.latitude]))
@@ -64,8 +66,8 @@ export async function fetchPilots(redis: Redis) {
 							planned_cruise: pilot.flight_plan.altitude.includes('FL')
 								? pilot.flight_plan.altitude.replace('FL', '') + '00'
 								: pilot.flight_plan.altitude, // If flight plan altitude is 'FL350' instead of '35000'
-							route: pilot.flight_plan.route,
-							remakes: pilot.flight_plan.remarks,
+							route: pilot.flight_plan.route || '',
+							remakes: pilot.flight_plan.remarks || '',
 						});
 
 						dataPilots.push(pilot.callsign);
