@@ -131,7 +131,7 @@ export async function fetchControllers(redis: Redis) {
 						AtcOnlineModel.create({
 							cid: controller.artccId,
 							name: controllerName,
-							rating: vNasRatings[controller.vatsimData.userRating],
+							rating: vNasRatings[controller.vatsimData.requestedRating],
 							pos: controller.vatsimData.callsign,
 							timeStart: controller.loginTime,
 							atis: controller.vatsimData.controllerInfo,
@@ -151,12 +151,14 @@ export async function fetchControllers(redis: Redis) {
 								timeStart: controller.loginTime,
 								timeEnd: new Date(new Date().toUTCString()),
 								position: controller.vatsimData.callsign,
+								isStudent: controller.role === 'Student',
+								isInstructor: controller.role === 'Instructor',
 							});
 							let rData = [
 								{
 									cid: parseInt(controller.vatsimData.cid, 10),
 									name: controller.vatsimData.realName,
-									rating: vNasRatings[controller.vatsimData.userRating],
+									rating: vNasRatings[controller.vatsimData.requestedRating],
 									pos: controller.vatsimData.callsign,
 									timeStart: controller.loginTime,
 									atis: controller.vatsimData.controllerInfo,
@@ -173,6 +175,7 @@ export async function fetchControllers(redis: Redis) {
 							postToZAUApi(controller.vatsimData.cid);
 						} else {
 							session.timeEnd = new Date(new Date().toUTCString());
+							session.save();
 						}
 
 						redis.expire(`CONTROLLER:${controller.vatsimData.callsign}`, 300);

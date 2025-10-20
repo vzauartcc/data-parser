@@ -7,7 +7,7 @@ export interface IController {
 	artccId: string;
 	primaryFacilityId: string;
 	primaryPositionId: string;
-	role: string;
+	role: 'Observer' | 'Controller' | 'Student' | 'Instructor';
 	positions: IPosition[];
 	isActive: boolean;
 	isObserver: boolean;
@@ -19,7 +19,14 @@ export interface IController {
 		userRating: string;
 		requestedRating: string;
 		callsign: string;
-		facilityType: string;
+		facilityType:
+			| 'Observer'
+			| 'FlightServiceStation'
+			| 'ClearanceDelivery'
+			| 'Ground'
+			| 'Tower'
+			| 'ApproachDeparture'
+			| 'Center';
 		primaryFrequency: number;
 	};
 }
@@ -28,7 +35,7 @@ export interface IPosition {
 	facility: string;
 	facilityName: string;
 	positionName: string;
-	positionType: string;
+	positionType: 'Artcc' | 'Tracon' | 'Atct';
 	radioName: string;
 	defaultCallsign: string;
 	frequency: number;
