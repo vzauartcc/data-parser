@@ -9,13 +9,18 @@ import type { IPirepFeed } from './types/pirepFeed.js';
 import type { IDataFeed } from './types/vatsimDataFeed.js';
 import type { IControllerFeed } from './types/vnasDataFeed.js';
 
-const postToZAUApi = (uri: string) => {
-	return fetch(`${process.env['ZAU_API_URL']}/stats/fifty/${uri}`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${process.env['ZAU_API_KEY']}`,
-		},
-	});
+const postToZAUApi = async (uri: string) => {
+	try {
+		return await fetch(`${process.env['ZAU_API_URL']}/stats/fifty/${uri}`, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${process.env['ZAU_API_KEY']}`,
+				'Content-Type': 'application/json',
+			},
+		});
+	} catch (message) {
+		return console.error(message);
+	}
 };
 
 export async function fetchPilots(redis: Redis) {
@@ -128,17 +133,19 @@ export async function fetchControllers(redis: Redis) {
 							? `${user.fname} ${user.lname}`
 							: controller.vatsimData.realName;
 
-						AtcOnlineModel.create({
-							cid: controller.artccId,
-							name: controllerName,
-							rating: vNasRatings[controller.vatsimData.requestedRating],
-							pos: controller.vatsimData.callsign,
-							timeStart: controller.loginTime,
-							atis: controller.vatsimData.controllerInfo,
-							frequency: controller.vatsimData.primaryFrequency,
-						});
+						if (controller.isActive) {
+							AtcOnlineModel.create({
+								cid: controller.vatsimData.cid,
+								name: controllerName,
+								rating: vNasRatings[controller.vatsimData.requestedRating],
+								pos: controller.vatsimData.callsign,
+								timeStart: controller.loginTime,
+								atis: controller.vatsimData.controllerInfo,
+								frequency: controller.vatsimData.primaryFrequency,
+							});
 
-						dataControllers.push(controller.vatsimData.callsign);
+							dataControllers.push(controller.vatsimData.callsign);
+						}
 
 						const session = await ControllerHoursModel.findOne({
 							cid: parseInt(controller.vatsimData.cid, 10),
@@ -146,35 +153,41 @@ export async function fetchControllers(redis: Redis) {
 						});
 
 						if (!session) {
-							ControllerHoursModel.create({
-								cid: parseInt(controller.vatsimData.cid, 10),
-								timeStart: controller.loginTime,
-								timeEnd: new Date(new Date().toUTCString()),
-								position: controller.vatsimData.callsign,
-								isStudent: controller.role === 'Student',
-								isInstructor: controller.role === 'Instructor',
-							});
-							let rData = [
-								{
+							if (controller.isActive) {
+								ControllerHoursModel.create({
 									cid: parseInt(controller.vatsimData.cid, 10),
-									name: controller.vatsimData.realName,
-									rating: vNasRatings[controller.vatsimData.requestedRating],
-									pos: controller.vatsimData.callsign,
 									timeStart: controller.loginTime,
-									atis: controller.vatsimData.controllerInfo,
-									frequency: controller.vatsimData.primaryFrequency,
-								},
-							];
+									timeEnd: new Date(new Date().toUTCString()),
+									position: controller.vatsimData.callsign,
+									isStudent: controller.role === 'Student',
+									isInstructor: controller.role === 'Instructor',
+								});
+								const rData = [
+									{
+										cid: parseInt(controller.vatsimData.cid, 10),
+										name: controller.vatsimData.realName,
+										rating: vNasRatings[controller.vatsimData.requestedRating],
+										pos: controller.vatsimData.callsign,
+										timeStart: controller.loginTime,
+										atis: controller.vatsimData.controllerInfo,
+										frequency: controller.vatsimData.primaryFrequency,
+									},
+								];
 
-							redis.lpush('myQueue', JSON.stringify(rData), (error) => {
-								if (error) {
-									console.log('Redis LPUSH error:', error);
-								}
-							});
+								redis.lpush('myQueue', JSON.stringify(rData), (error) => {
+									if (error) {
+										console.log('Redis LPUSH error:', error);
+									}
+								});
 
-							postToZAUApi(controller.vatsimData.cid);
+								postToZAUApi(controller.vatsimData.cid);
+							}
 						} else {
 							session.timeEnd = new Date(new Date().toUTCString());
+							if (!controller.isActive) {
+								// Controller went inactive. Modify the timeStart to uniquely identify active sessions
+								session.timeStart = new Date(session.timeStart.getTime() - 1000);
+							}
 							session.save();
 						}
 
@@ -305,7 +318,7 @@ export async function fetchPireps() {
 							reportTime: new Date(pirep.obsTime * 1000),
 							location: pirep.rawOb.slice(0, 3) || '',
 							aircraft: pirep.acType || '',
-							flightLevel: pirep.fltLvl || '',
+							flightLevel: pirep.fltLvl || 0,
 							skyCond: skyCond,
 							turbulence: turbulence,
 							icing: icing,
