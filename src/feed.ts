@@ -10,17 +10,13 @@ import type { IDataFeed } from './types/vatsimDataFeed.js';
 import type { IControllerFeed } from './types/vnasDataFeed.js';
 
 const postToZAUApi = async (uri: string) => {
-	try {
-		return await fetch(`${process.env['ZAU_API_URL']}/stats/fifty/${uri}`, {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${process.env['ZAU_API_KEY']}`,
-				'Content-Type': 'application/json',
-			},
-		});
-	} catch (message) {
-		return console.error(message);
-	}
+	return await fetch(`${process.env['ZAU_API_URL']}/stats/fifty/${uri}`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${process.env['ZAU_API_KEY']}`,
+			'Content-Type': 'application/json',
+		},
+	});
 };
 
 export async function fetchPilots(redis: Redis) {
@@ -104,7 +100,8 @@ export async function fetchPilots(redis: Redis) {
 
 				redis.set('pilots', dataPilots.join('|'));
 				redis.expire('pilots', 65);
-			});
+			})
+			.catch((err) => console.log('Error doing VATSIM datafeed fetch:', err));
 	} catch (err) {
 		console.log('Error updating pilots', err);
 	}
@@ -182,7 +179,9 @@ export async function fetchControllers(redis: Redis) {
 									}
 								});
 
-								postToZAUApi(controller.vatsimData.cid);
+								postToZAUApi(controller.vatsimData.cid).catch((err) =>
+									console.log('Error updating our API:', err),
+								);
 							}
 						} else {
 							session.timeEnd = new Date(new Date().toUTCString());
@@ -214,7 +213,8 @@ export async function fetchControllers(redis: Redis) {
 				redis.set('controllers', dataControllers.join('|'));
 				redis.expire('controllers', 65);
 				redis.set('neighbors', dataNeighbors.join('|'));
-			});
+			})
+			.catch((err) => console.log('Error doing vNAS datafeed fetch:', err));
 	} catch (err) {
 		console.log('Error updating controllers:', err);
 	}
@@ -232,7 +232,8 @@ export async function fetchMetars(redis: Redis) {
 					redis.set(`METAR:${metar.slice(0, 4)}`, metar);
 					redis.expire(`METAR:${metar.slice(0, 4)}`, 300);
 				}
-			});
+			})
+			.catch((err) => console.log('Error doing METAR fetch:', err));
 	} catch (err) {
 		console.log('Error updating METARs:', err);
 	}
@@ -274,7 +275,8 @@ export async function fetchAtises(redis: Redis) {
 
 				redis.set('atis', dataAtis.join('|'));
 				redis.expire('atis', 65);
-			});
+			})
+			.catch((err) => console.log('Error doing ATIS fetch', err));
 	} catch (err) {
 		console.log('Error updating ATISes:', err);
 	}
@@ -333,7 +335,8 @@ export async function fetchPireps() {
 						});
 					}
 				}
-			});
+			})
+			.catch((err) => console.log('Error doing PIREP fetch:', err));
 	} catch (err) {
 		console.log('Error updating PIREPs:', err);
 	}
