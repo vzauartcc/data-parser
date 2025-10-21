@@ -229,7 +229,7 @@ export async function fetchMetars(redis: Redis) {
 				const lines = data.split('\n').filter((line) => line.trim() !== '');
 
 				for (const metar of lines) {
-					redis.publish(`METAR:${metar.slice(0, 4)}`, metar);
+					redis.set(`METAR:${metar.slice(0, 4)}`, metar);
 					redis.expire(`METAR:${metar.slice(0, 4)}`, 300);
 				}
 			});
