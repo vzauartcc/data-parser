@@ -10,17 +10,13 @@ import type { IDataFeed } from './types/vatsimDataFeed.js';
 import type { IControllerFeed } from './types/vnasDataFeed.js';
 
 const postToZAUApi = async (uri: string) => {
-	try {
-		return await fetch(`${process.env['ZAU_API_URL']}/stats/fifty/${uri}`, {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${process.env['ZAU_API_KEY']}`,
-				'Content-Type': 'application/json',
-			},
-		});
-	} catch (message) {
-		return console.error(message);
-	}
+	return await fetch(`${process.env['ZAU_API_URL']}/stats/fifty/${uri}`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${process.env['ZAU_API_KEY']}`,
+			'Content-Type': 'application/json',
+		},
+	});
 };
 
 export async function fetchPilots(redis: Redis) {
@@ -183,7 +179,9 @@ export async function fetchControllers(redis: Redis) {
 									}
 								});
 
-								postToZAUApi(controller.vatsimData.cid);
+								postToZAUApi(controller.vatsimData.cid).catch((err) =>
+									console.log('Error updating our API:', err),
+								);
 							}
 						} else {
 							session.timeEnd = new Date(new Date().toUTCString());
