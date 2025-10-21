@@ -25,7 +25,7 @@ mongoose.set('toJSON', { virtuals: true });
 mongoose.connect(process.env['MONGO_URI']);
 
 mongoose.connection.once('open', () => {
-	console.log(`Connected to database, scheduling next task run. . . .`);
+	console.log(`Connected to database, starting cron jobs. . . .`);
 
 	// 15 second updates
 	new Cron('*/15 * * * * *', () => doWork());
