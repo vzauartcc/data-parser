@@ -11,7 +11,7 @@ interface IAtcOnline extends Document {
 	rating: number;
 	pos: string;
 	timeStart: Date;
-	atis: string;
+	atis?: string;
 	frequency: number;
 }
 
@@ -22,7 +22,7 @@ const AtcOnlineSchema = new Schema<IAtcOnline>(
 		rating: { type: Number, required: true },
 		pos: { type: String, required: true },
 		timeStart: { type: Date, required: true },
-		atis: { type: String, required: true, default: '' },
+		atis: { type: String },
 		frequency: { type: Number, required: true },
 	},
 	{ collection: 'atcOnline' },
