@@ -11,23 +11,22 @@ interface IAtcOnline extends Document {
 	rating: number;
 	pos: string;
 	timeStart: Date;
-	atis?: string;
+	atis: string;
 	frequency: number;
-
-	// Virtuals
-	ratingShort: string;
-	ratingLong: string;
 }
 
-const AtcOnlineSchema = new Schema<IAtcOnline>({
-	cid: { type: Number, required: true },
-	name: { type: String, required: true },
-	rating: { type: Number, required: true },
-	pos: { type: String, required: true },
-	timeStart: { type: Date, required: true },
-	atis: { type: String },
-	frequency: { type: Number, required: true },
-});
+const AtcOnlineSchema = new Schema<IAtcOnline>(
+	{
+		cid: { type: Number, required: true },
+		name: { type: String, required: true },
+		rating: { type: Number, required: true },
+		pos: { type: String, required: true },
+		timeStart: { type: Date, required: true },
+		atis: { type: String, required: true, default: '' },
+		frequency: { type: Number, required: true },
+	},
+	{ collection: 'atcOnline' },
+);
 
 AtcOnlineSchema.plugin(mongooseLeanVirtuals);
 
