@@ -28,10 +28,10 @@ mongoose.connection.once('open', () => {
 	console.log(`Connected to database, starting cron jobs. . . .`);
 
 	// 15 second updates
-	new Cron('*/15 * * * * *', () => doWork());
+	new Cron('*/15 * * * * *', () => doWork(), { catch: true });
 
 	// 2 minute updates
-	new Cron('*/2 * * * *', () => fetchPireps());
+	new Cron('*/2 * * * *', () => fetchPireps(), { catch: true });
 });
 
 function doWork() {
