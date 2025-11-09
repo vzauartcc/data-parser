@@ -30,7 +30,8 @@ export async function fetchPilots(redis: Redis) {
 			},
 		});
 		if (!response.ok) {
-			throw new Error(`VATSIM DataFeed returned status ${response.status}`);
+			console.error('Failed to fetch VATSIM pilot feed', response.status, response.statusText);
+			return;
 		}
 
 		const data = await response.json();
@@ -104,7 +105,7 @@ export async function fetchPilots(redis: Redis) {
 		redis.set('pilots', dataPilots.join('|'));
 		redis.expire('pilots', 65);
 	} catch (err) {
-		console.log('Error updating pilots', err);
+		console.error('Error updating pilots', err);
 	}
 }
 
@@ -116,7 +117,8 @@ export async function fetchControllers(redis: Redis) {
 			`https://live.env.vnas.vatsim.net/data-feed/controllers.json?t=${Date.now()}`,
 		);
 		if (!response.ok) {
-			throw new Error(`vNAS API returned status ${response.status}`);
+			console.error('Failed to fetch vNAS controller feed', response.status, response.statusText);
+			return;
 		}
 
 		const data = await response.json();
@@ -219,7 +221,7 @@ export async function fetchControllers(redis: Redis) {
 		redis.expire('controllers', 65);
 		redis.set('neighbors', dataNeighbors.join('|'));
 	} catch (err) {
-		console.log('Error updating controllers:', err);
+		console.error('Error updating controllers:', err);
 	}
 }
 
@@ -228,7 +230,8 @@ export async function fetchMetars(redis: Redis) {
 		const airportsString = airports.join(','); // Get all METARs, add to database
 		const response = await fetch(`https://metar.vatsim.net/${airportsString}`, { method: 'GET' });
 		if (!response.ok) {
-			throw new Error(`VATSIM METAR returned status ${response.status}`);
+			console.error('Failed to fetch METARs', response.status, response.statusText);
+			return;
 		}
 
 		const data = await response.text();
@@ -239,7 +242,7 @@ export async function fetchMetars(redis: Redis) {
 			redis.expire(`METAR:${metar.slice(0, 4)}`, 300);
 		}
 	} catch (err) {
-		console.log('Error updating METARs:', err);
+		console.error('Error updating METARs:', err);
 	}
 }
 
@@ -254,7 +257,8 @@ export async function fetchAtises(redis: Redis) {
 			},
 		});
 		if (!response.ok) {
-			throw new Error(`VATSIM DataFeed returned status ${response.status}`);
+			console.error('Failed to fetch VATSIM ATIS feed', response.status, response.statusText);
+			return;
 		}
 
 		const data = await response.json();
@@ -283,7 +287,7 @@ export async function fetchAtises(redis: Redis) {
 		redis.set('atis', dataAtis.join('|'));
 		redis.expire('atis', 65);
 	} catch (err) {
-		console.log('Error updating ATISes:', err);
+		console.error('Error updating ATISes:', err);
 	}
 }
 
@@ -303,13 +307,14 @@ export async function fetchPireps() {
 			},
 		);
 		if (!response.ok) {
-			throw new Error(`AviationWeather returned status ${response.status}`);
+			console.error('Failed to fetch PIREPs', response.status, response.statusText);
 		}
 
 		const data = await response.json();
 
 		if (!Array.isArray(data)) {
-			throw new Error(`AviationWeather data is not an array.`);
+			console.error(`AviationWeather data is not an array.`);
+			return;
 		}
 
 		const pireps = data as IPirepFeed[];
@@ -352,7 +357,7 @@ export async function fetchPireps() {
 			}
 		}
 	} catch (err) {
-		console.log('Error updating PIREPs:', err);
+		console.error('Error updating PIREPs:', err);
 	}
 }
 
