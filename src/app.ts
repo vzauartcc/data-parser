@@ -40,3 +40,11 @@ function doWork() {
 	fetchMetars(redis);
 	fetchAtises(redis);
 }
+
+process.on('uncaughtException', (err, _origin) => {
+	console.log('\n\n\n\n');
+	console.log('------------------------------');
+	console.log('!!!!  Uncaught exception  !!!!');
+	console.log('------------------------------');
+	console.error(err);
+});
