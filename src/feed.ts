@@ -105,7 +105,9 @@ export async function fetchPilots(redis: Redis) {
 		redis.set('pilots', dataPilots.join('|'));
 		redis.expire('pilots', 65);
 	} catch (err) {
-		console.error('Error updating pilots', err);
+		if ((err as any).code !== 'ETIMEDOUT') {
+			console.error('Error updating pilots', err);
+		}
 	}
 }
 
@@ -159,7 +161,7 @@ export async function fetchControllers(redis: Redis) {
 				});
 
 				if (!session) {
-					if (controller.isActive) {
+					if (controller.isActive || controller.isObserver) {
 						ControllerHoursModel.create({
 							cid: parseInt(controller.vatsimData.cid, 10),
 							timeStart: controller.loginTime,
@@ -168,27 +170,30 @@ export async function fetchControllers(redis: Redis) {
 							isStudent: controller.role === 'Student',
 							isInstructor: controller.role === 'Instructor',
 						});
-						const rData = [
-							{
-								cid: parseInt(controller.vatsimData.cid, 10),
-								name: controller.vatsimData.realName,
-								rating: vNasRatings[controller.vatsimData.requestedRating],
-								pos: controller.vatsimData.callsign,
-								timeStart: controller.loginTime,
-								atis: controller.vatsimData.controllerInfo,
-								frequency: controller.vatsimData.primaryFrequency,
-							},
-						];
 
-						redis.lpush('myQueue', JSON.stringify(rData), (error) => {
-							if (error) {
-								console.log('Redis LPUSH error:', error);
-							}
-						});
+						if (!controller.isObserver) {
+							const rData = [
+								{
+									cid: parseInt(controller.vatsimData.cid, 10),
+									name: controller.vatsimData.realName,
+									rating: vNasRatings[controller.vatsimData.requestedRating],
+									pos: controller.vatsimData.callsign,
+									timeStart: controller.loginTime,
+									atis: controller.vatsimData.controllerInfo,
+									frequency: controller.vatsimData.primaryFrequency,
+								},
+							];
 
-						postToZAUApi(controller.vatsimData.cid).catch((err) =>
-							console.log('Error updating our API:', err),
-						);
+							redis.lpush('myQueue', JSON.stringify(rData), (error) => {
+								if (error) {
+									console.log('Redis LPUSH error:', error);
+								}
+							});
+
+							postToZAUApi(controller.vatsimData.cid).catch((err) =>
+								console.log('Error updating our API:', err),
+							);
+						}
 					}
 				} else {
 					session.timeEnd = new Date(new Date().toUTCString());
@@ -221,7 +226,9 @@ export async function fetchControllers(redis: Redis) {
 		redis.expire('controllers', 65);
 		redis.set('neighbors', dataNeighbors.join('|'));
 	} catch (err) {
-		console.error('Error updating controllers:', err);
+		if ((err as any).code !== 'ETIMEDOUT') {
+			console.error('Error updating controllers:', err);
+		}
 	}
 }
 
@@ -242,7 +249,9 @@ export async function fetchMetars(redis: Redis) {
 			redis.expire(`METAR:${metar.slice(0, 4)}`, 300);
 		}
 	} catch (err) {
-		console.error('Error updating METARs:', err);
+		if ((err as any).code !== 'ETIMEDOUT') {
+			console.error('Error updating METARs:', err);
+		}
 	}
 }
 
@@ -287,7 +296,9 @@ export async function fetchAtises(redis: Redis) {
 		redis.set('atis', dataAtis.join('|'));
 		redis.expire('atis', 65);
 	} catch (err) {
-		console.error('Error updating ATISes:', err);
+		if ((err as any).code !== 'ETIMEDOUT') {
+			console.error('Error updating ATISes:', err);
+		}
 	}
 }
 
@@ -310,16 +321,26 @@ export async function fetchPireps() {
 			console.error('Failed to fetch PIREPs', response.status, response.statusText);
 		}
 
-		const data = await response.json();
+		let data: IPirepFeed[] = [];
 
-		if (!Array.isArray(data)) {
-			console.error(`AviationWeather data is not an array.`);
+		try {
+			data = (await response.json()) as IPirepFeed[];
+
+			if (!Array.isArray(data)) {
+				return;
+			}
+		} catch (_e) {
+			// Do nothing with failed json parse
 			return;
 		}
 
 		const pireps = data as IPirepFeed[];
 
 		for (const pirep of pireps) {
+			if (!pirep.acType || !pirep.rawOb.slice(0, 3) || !pirep.obsTime || !pirep.fltLvl) {
+				continue;
+			}
+
 			if (
 				(pirep.pirepType === 'PIREP' || pirep.pirepType === 'Urgent PIREP') &&
 				isPointInPolygon([pirep.lon, pirep.lat])
@@ -357,7 +378,9 @@ export async function fetchPireps() {
 			}
 		}
 	} catch (err) {
-		console.error('Error updating PIREPs:', err);
+		if ((err as any).code !== 'ETIMEDOUT') {
+			console.error('Error updating PIREPs:', err);
+		}
 	}
 }
 
