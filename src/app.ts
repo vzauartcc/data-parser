@@ -15,14 +15,14 @@ if (
 	process.exit(4);
 }
 
-const redis = new Redis(process.env['REDIS_URI']);
+const redis = new Redis(process.env['REDIS_URI'], { family: 4, connectionName: 'data-parser' });
 redis.on('connect', () => console.log('Connected to redis'));
 redis.on('error', (err) => {
 	throw err;
 });
 
 mongoose.set('toJSON', { virtuals: true });
-mongoose.connect(process.env['MONGO_URI']);
+mongoose.connect(process.env['MONGO_URI'], { family: 4 });
 
 mongoose.connection.once('open', () => {
 	console.log(`Connected to database, starting cron jobs. . . .`);

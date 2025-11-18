@@ -161,7 +161,7 @@ export async function fetchControllers(redis: Redis) {
 				});
 
 				if (!session) {
-					if (controller.isActive) {
+					if (controller.isActive || controller.isObserver) {
 						ControllerHoursModel.create({
 							cid: parseInt(controller.vatsimData.cid, 10),
 							timeStart: controller.loginTime,
@@ -170,27 +170,30 @@ export async function fetchControllers(redis: Redis) {
 							isStudent: controller.role === 'Student',
 							isInstructor: controller.role === 'Instructor',
 						});
-						const rData = [
-							{
-								cid: parseInt(controller.vatsimData.cid, 10),
-								name: controller.vatsimData.realName,
-								rating: vNasRatings[controller.vatsimData.requestedRating],
-								pos: controller.vatsimData.callsign,
-								timeStart: controller.loginTime,
-								atis: controller.vatsimData.controllerInfo,
-								frequency: controller.vatsimData.primaryFrequency,
-							},
-						];
 
-						redis.lpush('myQueue', JSON.stringify(rData), (error) => {
-							if (error) {
-								console.log('Redis LPUSH error:', error);
-							}
-						});
+						if (!controller.isObserver) {
+							const rData = [
+								{
+									cid: parseInt(controller.vatsimData.cid, 10),
+									name: controller.vatsimData.realName,
+									rating: vNasRatings[controller.vatsimData.requestedRating],
+									pos: controller.vatsimData.callsign,
+									timeStart: controller.loginTime,
+									atis: controller.vatsimData.controllerInfo,
+									frequency: controller.vatsimData.primaryFrequency,
+								},
+							];
 
-						postToZAUApi(controller.vatsimData.cid).catch((err) =>
-							console.log('Error updating our API:', err),
-						);
+							redis.lpush('myQueue', JSON.stringify(rData), (error) => {
+								if (error) {
+									console.log('Redis LPUSH error:', error);
+								}
+							});
+
+							postToZAUApi(controller.vatsimData.cid).catch((err) =>
+								console.log('Error updating our API:', err),
+							);
+						}
 					}
 				} else {
 					session.timeEnd = new Date(new Date().toUTCString());
