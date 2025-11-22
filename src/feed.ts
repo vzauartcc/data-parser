@@ -137,6 +137,7 @@ export async function fetchControllers(redis: Redis) {
 				const user = await UserModel.findOne({
 					cid: parseInt(controller.vatsimData.cid, 10),
 				}).exec();
+
 				const controllerName = user
 					? `${user.fname} ${user.lname}`
 					: controller.vatsimData.realName;
@@ -197,7 +198,7 @@ export async function fetchControllers(redis: Redis) {
 					}
 				} else {
 					session.timeEnd = new Date(new Date().toUTCString());
-					if (!controller.isActive) {
+					if (!controller.isActive && !controller.isObserver) {
 						// Controller went inactive. Modify the timeStart to uniquely identify active sessions
 						session.timeStart = new Date(session.timeStart.getTime() - 1000);
 					}
