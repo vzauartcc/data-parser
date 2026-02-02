@@ -1,6 +1,6 @@
 package config
 
-var Airspace = [][]float64{
+var airspace = [][]float64{
 	{-91.725, 42.725},
 	{-91.083333, 43.366667},
 	{-90.829167, 43.618056},
@@ -33,4 +33,33 @@ var Airspace = [][]float64{
 	{-93.05, 42.666667},
 	{-93, 42.783333},
 	{-91.725, 42.725},
+}
+
+func IsPointInAirspace(lat float64, lon float64) bool {
+	inside := false
+
+	vertices := len(airspace)
+	if vertices < 3 {
+		return false
+	}
+
+	// Iterate through each edge of airspace.
+	j := vertices - 1
+	for i := range vertices {
+		xi, yi := airspace[i][0], airspace[i][1]
+		xj, yj := airspace[j][0], airspace[j][1]
+
+		// Check if the point's Longitude coordinate is within the edge's
+		// Longitude range and if the ray casting to the right intersects the edge
+		intersect := ((yi > lon) != (yj > lon)) &&
+			(lat < (xj-xi)*(lon-yi)/(yj-yi)+xi)
+
+		if intersect {
+			inside = !inside
+		}
+
+		j = i
+	}
+
+	return inside
 }
