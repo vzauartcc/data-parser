@@ -70,6 +70,15 @@ func main() {
 		runParser(ctx)
 	})
 	if err != nil {
+		log.Println("Failed to add cron job for VATSIM/vNAS data")
+		panic(err)
+	}
+
+	_, err = runner.AddFunc("0 */5 * * * *", func() {
+		doPirepFeed(ctx)
+	})
+	if err != nil {
+		log.Println("Failed to add cron job for PIREPs")
 		panic(err)
 	}
 
@@ -100,8 +109,6 @@ func runParser(ctx context.Context) {
 	go doVnasFeed(ctx)
 
 	go doVatsimFeed(ctx)
-
-	go doPirepFeed(ctx)
 }
 
 func doVnasFeed(ctx context.Context) {
