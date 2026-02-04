@@ -18,13 +18,7 @@ import (
 )
 
 func ControllerFeed(ctx context.Context, controllers []datafeed.VnasController, mongoDB *mongo.Database, redisClient *redis.Client) error {
-	if redisClient == nil {
-		log.Fatalln("Redis client is not set up.")
-	}
-
-	if mongoDB == nil {
-		log.Fatalln("MongoDB is not set up.")
-	}
+	_, _ = mongoDB.Collection("atcOnline").DeleteMany(ctx, bson.M{})
 
 	dataControllers := make([]string, 0)
 
@@ -48,13 +42,6 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasController, 
 
 	for _, controller := range controllers {
 		if controller.ArtccID == "ZAU" {
-			log.Printf(
-				"Processing ZAU Controller %s (%s) working %s\n",
-				controller.VatsimData.RealName,
-				controller.VatsimData.CID,
-				controller.VatsimData.Callsign,
-			)
-
 			cid, err := strconv.Atoi(controller.VatsimData.CID)
 			if err != nil {
 				continue
