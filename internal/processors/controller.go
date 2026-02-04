@@ -130,13 +130,17 @@ func logSession(ctx context.Context, controller datafeed.VnasController, mongoDB
 			session.TimeStart = session.TimeStart.Add(-1 * time.Second)
 		}
 
-		_ = mongoDB.Collection("controllerHours").FindOneAndUpdate(
-			ctx,
-			bson.M{
-				"_id": session.ID},
-			bson.M{
+		_, err := mongoDB.Collection("controllerHours").UpdateByID(ctx, session.ID, bson.M{
+			"$set": bson.M{
 				"timeEnd":   session.TimeEnd,
 				"timeStart": session.TimeStart,
-			})
+			},
+		})
+
+		if err != nil {
+			log.Printf("failed to update session for %s: %+v", controller.VatsimData.CID, err)
+
+		}
+
 	}
 }
