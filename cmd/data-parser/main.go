@@ -25,7 +25,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log.Println("Application starting. . . .")
+	log.Println("data-parser starting. . . .")
 
 	mongoURI, err := connstring.ParseAndValidate(os.Getenv("MONGO_URI"))
 	if err != nil {
@@ -45,6 +45,11 @@ func main() {
 
 		_ = mongoClient.Disconnect(shutCtx)
 	}()
+
+	err = mongoClient.Ping(ctx, nil)
+	if err != nil {
+		panic(err)
+	}
 
 	mongoDB = mongoClient.Database(mongoURI.Database)
 
@@ -68,13 +73,13 @@ func main() {
 		panic(err)
 	}
 
-	log.Println("Waiting for next run. . . .")
-
 	runner.Start()
+
+	log.Println("data-parser running. . . .")
 
 	<-ctx.Done()
 
-	log.Println("Shutting down. . . .")
+	log.Println("data-parser shutting down. . . .")
 
 	stopCtx := runner.Stop()
 
@@ -92,15 +97,9 @@ func runParser(ctx context.Context) {
 		log.Fatalln("MongoDB is not set up.")
 	}
 
-	log.Printf("Checking controller feed. . . .\n\n")
-
 	go doVnasFeed(ctx)
 
-	log.Printf("Checking ATIS and Pilot feed. . . .\n\n")
-
 	go doVatsimFeed(ctx)
-
-	log.Printf("Checking PIREP feed. . . .\n\n")
 
 	go doPirepFeed(ctx)
 }
