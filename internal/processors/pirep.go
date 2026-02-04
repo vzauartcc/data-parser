@@ -16,6 +16,14 @@ import (
 var multiSpace = regexp.MustCompile(`\s+`)
 
 func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB *mongo.Database) error {
+	expired := time.Now().Add(-2 * time.Hour)
+	_, _ = mongoDB.Collection("pireps").DeleteMany(ctx, bson.M{
+		"$or": bson.A{
+			bson.M{"manual": false},
+			bson.M{"reportTime": bson.M{"$lte": expired}},
+		},
+	})
+
 	for _, pirep := range pireps {
 		if pirep.AircraftType == "" || pirep.RawObservation[:3] == "" ||
 			pirep.ObservationTime == 0 ||
