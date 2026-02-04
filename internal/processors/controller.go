@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,7 +16,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-func ControllerFeed(ctx context.Context, controllers []datafeed.VnasController, mongoDB *mongo.Database, redisClient *redis.Client) error {
+func ControllerFeed(ctx context.Context, controllers []datafeed.VnasUser, mongoDB *mongo.Database, redisClient *redis.Client) error {
 	_, err := mongoDB.Collection("atcOnline").DeleteMany(ctx, bson.M{})
 	if err != nil {
 		log.Printf("Error cleaning atc online collection: %v\n", err)
@@ -45,16 +44,11 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasController, 
 
 	for _, controller := range controllers {
 		if controller.ArtccID == "ZAU" {
-			cid, err := strconv.Atoi(controller.VatsimData.CID)
-			if err != nil {
-				continue
-			}
-
 			var user models.User
 
-			err = mongoDB.Collection("users").FindOne(ctx, bson.M{"cid": cid}).Decode(&user)
-			if err != nil {
-				log.Printf("Failed to decode user for %s: %v\n", controller.VatsimData.CID, err)
+			err = mongoDB.Collection("users").FindOne(ctx, bson.M{"cid": controller.CID}).Decode(&user)
+			if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+				log.Printf("Failed to decode user for %d: %v\n", controller.CID, err)
 			}
 
 			controllerName := controller.VatsimData.RealName
@@ -64,7 +58,7 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasController, 
 
 			if controller.IsActive {
 				_, err = mongoDB.Collection("atcOnline").InsertOne(ctx, bson.M{
-					"cid":       controller.VatsimData.CID,
+					"cid":       controller.CID,
 					"name":      controllerName,
 					"rating":    datafeed.GetRating(controller.VatsimData.RequestedRating),
 					"pos":       controller.VatsimData.Callsign,
@@ -73,7 +67,7 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasController, 
 					"frequency": controller.VatsimData.PrimaryFrequency,
 				})
 				if err != nil {
-					log.Printf("Error inserting online atc for %s: %v\n", controller.VatsimData.CID, err)
+					log.Printf("Error inserting online atc for %d: %v\n", controller.CID, err)
 				}
 
 				dataControllers = append(dataControllers, controller.VatsimData.Callsign)

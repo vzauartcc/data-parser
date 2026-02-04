@@ -5,8 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 )
+
+type VnasUser struct {
+	VnasController
+
+	CID int
+}
+
+type VnasControllerFeed struct {
+	UpdatedAt   time.Time
+	Controllers []VnasUser
+}
 
 type ControllerFeed struct {
 	UpdatedAt   time.Time        `json:"updatedAt"`
@@ -61,24 +73,41 @@ var vNasURL = fmt.Sprintf(
 	time.Now().UnixMilli(),
 )
 
-func FetchVnasFeed(ctx context.Context) (ControllerFeed, error) {
+func FetchVnasFeed(ctx context.Context) (VnasControllerFeed, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		vNasURL, nil)
 	if err != nil {
-		return ControllerFeed{}, err
+		return VnasControllerFeed{}, err
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return ControllerFeed{}, err
+		return VnasControllerFeed{}, err
 	}
 	defer resp.Body.Close()
 
-	var retval ControllerFeed
+	var feed ControllerFeed
 
-	err = json.NewDecoder(resp.Body).Decode(&retval)
+	err = json.NewDecoder(resp.Body).Decode(&feed)
 	if err != nil {
-		return ControllerFeed{}, err
+		return VnasControllerFeed{}, err
+	}
+
+	retval := VnasControllerFeed{
+		UpdatedAt:   feed.UpdatedAt,
+		Controllers: make([]VnasUser, 0),
+	}
+
+	for _, controller := range feed.Controllers {
+		cid, err := strconv.Atoi(controller.VatsimData.CID)
+		if err != nil {
+			continue
+		}
+
+		retval.Controllers = append(retval.Controllers, VnasUser{
+			CID:            cid,
+			VnasController: controller,
+		})
 	}
 
 	return retval, nil
