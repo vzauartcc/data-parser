@@ -129,7 +129,7 @@ func doVatsimFeed(ctx context.Context) {
 		log.Printf("Error processing pilots: %v\n", err2)
 	}
 
-	err3 := processors.AtisFeed(ctx, data.ATISs, mongoDB, redisClient)
+	err3 := processors.AtisFeed(ctx, data.ATISs, redisClient)
 	if err3 != nil {
 		log.Printf("Error processing ATISs: %v\n", err3)
 	}

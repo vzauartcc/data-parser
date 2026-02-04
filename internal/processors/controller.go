@@ -18,7 +18,10 @@ import (
 )
 
 func ControllerFeed(ctx context.Context, controllers []datafeed.VnasController, mongoDB *mongo.Database, redisClient *redis.Client) error {
-	_, _ = mongoDB.Collection("atcOnline").DeleteMany(ctx, bson.M{})
+	_, err := mongoDB.Collection("atcOnline").DeleteMany(ctx, bson.M{})
+	if err != nil {
+		log.Printf("Error cleaning atc online collection: %v\n", err)
+	}
 
 	dataControllers := make([]string, 0)
 
@@ -49,7 +52,10 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasController, 
 
 			var user models.User
 
-			_ = mongoDB.Collection("users").FindOne(ctx, bson.M{"cid": cid}).Decode(&user)
+			err = mongoDB.Collection("users").FindOne(ctx, bson.M{"cid": cid}).Decode(&user)
+			if err != nil {
+				log.Printf("Failed to decode user for %s: %v\n", controller.VatsimData.CID, err)
+			}
 
 			controllerName := controller.VatsimData.RealName
 			if user.FirstName != "" {
@@ -57,7 +63,7 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasController, 
 			}
 
 			if controller.IsActive {
-				_, _ = mongoDB.Collection("atcOnline").InsertOne(ctx, bson.M{
+				_, err = mongoDB.Collection("atcOnline").InsertOne(ctx, bson.M{
 					"cid":       controller.VatsimData.CID,
 					"name":      controllerName,
 					"rating":    datafeed.GetRating(controller.VatsimData.RequestedRating),
@@ -66,6 +72,9 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasController, 
 					"atis":      controller.VatsimData.ControllerInfo,
 					"frequency": controller.VatsimData.PrimaryFrequency,
 				})
+				if err != nil {
+					log.Printf("Error inserting online atc for %s: %v\n", controller.VatsimData.CID, err)
+				}
 
 				dataControllers = append(dataControllers, controller.VatsimData.Callsign)
 			}

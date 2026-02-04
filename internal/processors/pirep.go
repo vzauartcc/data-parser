@@ -3,6 +3,7 @@ package processors
 import (
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -17,12 +18,16 @@ var multiSpace = regexp.MustCompile(`\s+`)
 
 func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB *mongo.Database) error {
 	expired := time.Now().Add(-2 * time.Hour)
-	_, _ = mongoDB.Collection("pireps").DeleteMany(ctx, bson.M{
+
+	_, err := mongoDB.Collection("pireps").DeleteMany(ctx, bson.M{
 		"$or": bson.A{
 			bson.M{"manual": false},
 			bson.M{"reportTime": bson.M{"$lte": expired}},
 		},
 	})
+	if err != nil {
+		log.Printf("Error cleaning up pirep collection: %v\n", err)
+	}
 
 	for _, pirep := range pireps {
 		if pirep.AircraftType == "" || pirep.RawObservation[:3] == "" ||
@@ -93,7 +98,7 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB *mongo.Data
 			turb = strings.TrimSpace(multiSpace.ReplaceAllString(turb, " "))
 		}
 
-		_, _ = mongoDB.Collection("pireps").InsertOne(ctx, bson.M{
+		_, err = mongoDB.Collection("pireps").InsertOne(ctx, bson.M{
 			"reportTime":  time.UnixMilli(int64(pirep.ObservationTime * 1000)),
 			"location":    pirep.RawObservation[:3],
 			"aircraft":    pirep.AircraftType,
@@ -108,6 +113,9 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB *mongo.Data
 			"raw":         pirep.RawObservation,
 			"manual":      false,
 		})
+		if err != nil {
+			log.Printf("Error inserting pirep: %v\n", err)
+		}
 	}
 
 	return nil

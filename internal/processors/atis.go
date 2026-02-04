@@ -11,13 +11,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/vzauartcc/data-parser/config"
 	"github.com/vzauartcc/data-parser/internal/datafeed"
-	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-func AtisFeed(ctx context.Context, atiss []datafeed.VatsimATIS, mongoDB *mongo.Database, redisClient *redis.Client) error {
-	_, _ = mongoDB.Collection("atisOnline").DeleteMany(ctx, bson.M{})
-
+func AtisFeed(ctx context.Context, atiss []datafeed.VatsimATIS, redisClient *redis.Client) error {
 	dataAtis := make([]string, 0)
 
 	redisData, err := redisClient.Get(ctx, "atis").Result()

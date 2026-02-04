@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,7 +18,10 @@ import (
 )
 
 func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mongo.Database, redisClient *redis.Client) error {
-	_, _ = mongoDB.Collection("pilotsOnline").DeleteMany(ctx, bson.M{})
+	_, err := mongoDB.Collection("pilotsOnline").DeleteMany(ctx, bson.M{})
+	if err != nil {
+		log.Printf("Error cleaning pilotsOnline collection: %v\n", err)
+	}
 
 	dataPilots := make([]string, 0)
 
@@ -46,7 +50,7 @@ func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mong
 				plannedCruise = strings.ReplaceAll(plannedCruise, "FL", "") + "00"
 			}
 
-			_, _ = mongoDB.Collection("pilotsOnline").InsertOne(ctx, bson.M{
+			_, err = mongoDB.Collection("pilotsOnline").InsertOne(ctx, bson.M{
 				"cid":           pilot.CID,
 				"name":          pilot.Name,
 				"callsign":      pilot.Callsign,
@@ -63,6 +67,9 @@ func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mong
 				"route":         pilot.FlightPlan.Route,
 				"remarks":       pilot.FlightPlan.Remarks,
 			})
+			if err != nil {
+				log.Printf("Error inserting pilot %s: %v\n", pilot.Callsign, err)
+			}
 
 			dataPilots = append(dataPilots, pilot.Callsign)
 
