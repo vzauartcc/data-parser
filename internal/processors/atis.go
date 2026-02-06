@@ -29,22 +29,38 @@ func AtisFeed(ctx context.Context, atiss []datafeed.VatsimATIS, redisClient *red
 	for _, atis := range atiss {
 		airport := atis.Callsign[0:4]
 		if slices.Contains(config.Airports, airport) {
-			log.Printf("Saving ATIS code %s for %s\n", atis.ATISCode, atis.Callsign)
-
 			dataAtis = append(dataAtis, airport)
-			_ = redisClient.Expire(ctx, "ATIS:"+airport, 65*time.Second)
-			_ = redisClient.Publish(ctx, "ATIS:"+airport, atis.ATISCode)
+
+			_, err = redisClient.Expire(ctx, "ATIS:"+airport, 65*time.Second).Result()
+			if err != nil {
+				log.Printf("Error setting expiry for ATIS:%s: %v\n", airport, err)
+			}
+
+			_, err = redisClient.Publish(ctx, "ATIS:"+airport, atis.ATISCode).Result()
+			if err != nil {
+				log.Printf("Error publishing ATIS:%s: %v\n", airport, err)
+			}
 		}
 	}
 
 	for _, atis := range redisAtis {
 		if !slices.Contains(dataAtis, atis) {
-			_ = redisClient.Publish(ctx, "ATIS:DELETE", atis)
-			_ = redisClient.Del(ctx, "ATIS:"+atis)
+			_, err = redisClient.Publish(ctx, "ATIS:DELETE", atis).Result()
+			if err != nil {
+				log.Printf("Error publishing  ATIS:DELETE for %s: %v\n", atis, err)
+			}
+
+			_, err = redisClient.Del(ctx, "ATIS:"+atis).Result()
+			if err != nil {
+				log.Printf("Error deleting ATIS:%s: %v\n", atis, err)
+			}
 		}
 	}
 
-	_ = redisClient.Set(ctx, "atis", strings.Join(dataAtis, "|"), 65*time.Second)
+	_, err = redisClient.Set(ctx, "atis", strings.Join(dataAtis, "|"), 65*time.Second).Result()
+	if err != nil {
+		log.Printf("Error setting list of online ATISs: %v\n", err)
+	}
 
 	return nil
 }

@@ -73,7 +73,7 @@ func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mong
 
 			dataPilots = append(dataPilots, pilot.Callsign)
 
-			_ = redisClient.HMSet(ctx, "PILOT:"+pilot.Callsign,
+			_, err = redisClient.HMSet(ctx, "PILOT:"+pilot.Callsign,
 				"callsign", pilot.Callsign,
 				"lat", fmt.Sprintf("%f", pilot.Latitude),
 				"lng", fmt.Sprintf("%f", pilot.Longitude),
@@ -82,20 +82,36 @@ func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mong
 				"altitude", strconv.Itoa(pilot.Altitude),
 				"cruise", plannedCruise,
 				"destination", pilot.FlightPlan.Arrival,
-			)
+			).Result()
+			if err != nil {
+				log.Printf("Error setting pilot %s in redis: %v\n", pilot.Callsign, err)
+			}
 
-			_ = redisClient.Expire(ctx, "PILOT:"+pilot.Callsign, 5*time.Minute)
-			_ = redisClient.Publish(ctx, "PILOT:UPDATE", pilot.Callsign)
+			_, err = redisClient.Expire(ctx, "PILOT:"+pilot.Callsign, 5*time.Minute).Result()
+			if err != nil {
+				log.Printf("Error expiring pilot %s: %v\n", pilot.Callsign, err)
+			}
+
+			_, err = redisClient.Publish(ctx, "PILOT:UPDATE", pilot.Callsign).Result()
+			if err != nil {
+				log.Printf("Error updating pilot %s: %v\n", pilot.Callsign, err)
+			}
 		}
 	}
 
 	for _, pilot := range redisPilots {
 		if !slices.Contains(dataPilots, pilot) {
-			_ = redisClient.Publish(ctx, "PILOT:DELETE", pilot)
+			_, err = redisClient.Publish(ctx, "PILOT:DELETE", pilot).Result()
+			if err != nil {
+				log.Printf("Error deleting pilot %s: %v\n", pilot, err)
+			}
 		}
 	}
 
-	_ = redisClient.Set(ctx, "pilots", strings.Join(dataPilots, "|"), 65*time.Second)
+	_, err = redisClient.Set(ctx, "pilots", strings.Join(dataPilots, "|"), 65*time.Second).Result()
+	if err != nil {
+		log.Printf("Error setting online pilots: %v\n", err)
+	}
 
 	return nil
 }
