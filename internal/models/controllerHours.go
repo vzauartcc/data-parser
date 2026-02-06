@@ -14,4 +14,5 @@ type ControllerHours struct {
 	Position     string        `bson:"position"`
 	IsStudent    bool          `bson:"isStudent"`
 	IsInstructor bool          `bson:"isInstructor"`
+	WentInactive bool          `bson:"wentInactive"`
 }

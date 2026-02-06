@@ -14,6 +14,7 @@ import (
 	"github.com/vzauartcc/data-parser/internal/models"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func ControllerFeed(ctx context.Context, controllers []datafeed.VnasUser, mongoDB *mongo.Database, redisClient *redis.Client) error {
@@ -105,45 +106,64 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasUser, mongoD
 	return nil
 }
 
-func logSession(ctx context.Context, controller datafeed.VnasController, mongoDB *mongo.Database) {
+func logSession(ctx context.Context, controller datafeed.VnasUser, mongoDB *mongo.Database) {
 	var session *models.ControllerHours
 
-	_ = mongoDB.Collection("controllerHours").
+	err := mongoDB.Collection("controllerHours").
 		FindOne(ctx, bson.M{
-			"cid":       controller.VatsimData.CID,
-			"timeStart": controller.LoginTime,
-		}).
+			"cid": controller.CID,
+			"timeStart": bson.M{
+				"$gte": controller.LoginTime,
+				"$lt":  time.Now(),
+			},
+		}, options.FindOne().SetSort(bson.M{"timeStart": -1})).
 		Decode(&session)
+	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+		log.Printf("Failed to decode session for %d: %v\n", controller.CID, err)
+	}
 
-	if session == nil {
+	log.Printf("%d: %+v", controller.CID, session)
+
+	if session == nil || session.WentInactive {
 		if controller.IsActive || controller.IsObserver {
-			log.Printf("Creating new session for %s on %s\n", controller.VatsimData.CID, controller.VatsimData.Callsign)
-			_, _ = mongoDB.Collection("controllerHours").InsertOne(ctx, bson.M{
-				"cid":          controller.VatsimData.CID,
-				"timeStart":    controller.LoginTime,
+			log.Printf("Creating new session for %d on %s\n", controller.CID, controller.VatsimData.Callsign)
+
+			startTime := controller.LoginTime
+			if session != nil && session.WentInactive {
+				startTime = time.Now().Add(-1 * time.Second)
+			}
+
+			_, err = mongoDB.Collection("controllerHours").InsertOne(ctx, bson.M{
+				"cid":          controller.CID,
+				"timeStart":    startTime,
 				"timeEnd":      time.Now(),
 				"position":     controller.VatsimData.Callsign,
 				"isStudent":    controller.Role == "Student",
 				"isInstructor": controller.Role == "Instructor",
+				"wentInactive": false,
 			})
+			if err != nil {
+				log.Printf("Failed to insert session for %d: %v\n", controller.CID, err)
+			}
 		}
 	} else {
 		session.TimeEnd = time.Now()
+
 		if !controller.IsActive && !controller.IsObserver {
-			session.TimeStart = session.TimeStart.Add(-1 * time.Second)
+			log.Printf("%d's session went inactive, updating record\n", controller.CID)
+
+			session.WentInactive = true
 		}
 
 		_, err := mongoDB.Collection("controllerHours").UpdateByID(ctx, session.ID, bson.M{
 			"$set": bson.M{
-				"timeEnd":   session.TimeEnd,
-				"timeStart": session.TimeStart,
+				"timeEnd":      session.TimeEnd,
+				"timeStart":    session.TimeStart,
+				"wentInactive": session.WentInactive,
 			},
 		})
-
 		if err != nil {
-			log.Printf("failed to update session for %s: %+v", controller.VatsimData.CID, err)
-
+			log.Printf("failed to update session for %d: %+v\n", controller.CID, err)
 		}
-
 	}
 }

@@ -45,6 +45,8 @@ linters:
       min-occurrences: 3
     gocyclo:
       min-complexity: 45
+    nestif:
+      min-complexity: 10
     varnamelen:
       ignore-names:
         - err
