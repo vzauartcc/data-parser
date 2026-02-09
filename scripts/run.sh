@@ -7,6 +7,10 @@ if ! command -v doppler &> /dev/null; then
     exit 1
 fi
 
+# Extract config name for Doppler and shift remaining arguments to the left.
+CONFIG_NAME=$1
+shift
+
 export LOCAL_DEV_ENVIRONMENT="true"
 
-doppler run -p data-parser -c dev_ryan -- go run ./cmd/data-parser/main.go "$@"
+doppler run -p data-parser -c "$CONFIG_NAME" -- go run ./cmd/data-parser/main.go "$@"

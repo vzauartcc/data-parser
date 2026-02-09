@@ -76,8 +76,15 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasUser, mongoD
 
 			logSession(ctx, controller, mongoDB)
 
-			_ = redisClient.Expire(ctx, "CONTROLLER:"+controller.VatsimData.Callsign, 5*time.Minute)
-			_ = redisClient.Publish(ctx, "CONTROLLER:UPDATE", controller.VatsimData.Callsign)
+			_, err = redisClient.Expire(ctx, "CONTROLLER:"+controller.VatsimData.Callsign, 5*time.Minute).Result()
+			if err != nil {
+				log.Printf("Error expiring old controller info for %s: %v\n", controller.VatsimData.Callsign, err)
+			}
+
+			_, err = redisClient.Publish(ctx, "CONTROLLER:UPDATE", controller.VatsimData.Callsign).Result()
+			if err != nil {
+				log.Printf("Error publishing controller info for %s: %v\n", controller.VatsimData.Callsign, err)
+			}
 		} else if slices.Contains(neighbors, controller.ArtccID) {
 			dataNeighbors[controller.ArtccID] = struct{}{}
 		}
@@ -87,21 +94,33 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasUser, mongoD
 		if !slices.Contains(dataControllers, atc) {
 			data, err := json.Marshal(atc)
 			if err != nil {
-				_ = redisClient.LPush(ctx, "1231231231231231231231", string(data))
+				_, err2 := redisClient.LPush(ctx, "1231231231231231231231", string(data)).Result()
+				if err2 != nil {
+					log.Printf("Error queuing controller %s: %v\n", atc, err2)
+				}
 			}
 
-			_ = redisClient.Publish(ctx, "CONTROLLER:DELETE", atc)
+			_, err = redisClient.Publish(ctx, "CONTROLLER:DELETE", atc).Result()
+			if err != nil {
+				log.Printf("Error publishing CONTROLLER:DELETE for %s: %v\n", atc, err)
+			}
 		}
 	}
 
-	_ = redisClient.Set(ctx, "controllers", strings.Join(dataControllers, "|"), 65*time.Second)
+	_, err = redisClient.Set(ctx, "controllers", strings.Join(dataControllers, "|"), 65*time.Second).Result()
+	if err != nil {
+		log.Printf("Error setting online controllers: %v\n", err)
+	}
 
 	neighs := make([]string, 0)
 	for key := range dataNeighbors {
 		neighs = append(neighs, key)
 	}
 
-	_ = redisClient.Set(ctx, "neighbors", strings.Join(neighs, "|"), 0*time.Second)
+	_, err = redisClient.Set(ctx, "neighbors", strings.Join(neighs, "|"), 0*time.Second).Result()
+	if err != nil {
+		log.Printf("Error setting online neighbors: %v\n", err)
+	}
 
 	return nil
 }
@@ -121,8 +140,6 @@ func logSession(ctx context.Context, controller datafeed.VnasUser, mongoDB *mong
 	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 		log.Printf("Failed to decode session for %d: %v\n", controller.CID, err)
 	}
-
-	log.Printf("%d: %+v", controller.CID, session)
 
 	if session == nil || session.WentInactive {
 		if controller.IsActive || controller.IsObserver {
