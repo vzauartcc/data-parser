@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . ./
 
-RUN CGO_ENABLE=0 GOOS=linux go build -v -o data-parser ./cmd/data-parser/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOAMD64=v3 go build -v -ldflags="-s -w" -o data-parser ./cmd/data-parser/main.go
 
 FROM gcr.io/distroless/static-debian13
 
