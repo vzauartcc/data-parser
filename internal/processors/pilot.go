@@ -42,8 +42,8 @@ func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mong
 			continue
 		}
 
-		if slices.Contains(config.Airports, pilot.FlightPlan.Departure) ||
-			slices.Contains(config.Airports, pilot.FlightPlan.Arrival) ||
+		if config.Airports[pilot.FlightPlan.Departure] ||
+			config.Airports[pilot.FlightPlan.Arrival] ||
 			config.IsPointInAirspace(pilot.Latitude, pilot.Longitude) {
 			plannedCruise := pilot.FlightPlan.RequestedAltitude
 			if strings.Contains(pilot.FlightPlan.RequestedAltitude, "FL") {

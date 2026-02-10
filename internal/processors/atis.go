@@ -28,7 +28,7 @@ func AtisFeed(ctx context.Context, atiss []datafeed.VatsimATIS, redisClient *red
 
 	for _, atis := range atiss {
 		airport := atis.Callsign[0:4]
-		if slices.Contains(config.Airports, airport) && strings.TrimSpace(atis.ATISCode) != "" {
+		if strings.TrimSpace(atis.ATISCode) != "" && config.Airports[airport] {
 			dataAtis = append(dataAtis, airport)
 
 			_, err = redisClient.Expire(ctx, "ATIS:"+airport, 65*time.Second).Result()
