@@ -9,20 +9,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/robfig/cron/v3"
 	"github.com/vzauartcc/data-parser/internal/cache"
 	"github.com/vzauartcc/data-parser/internal/database"
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 	"github.com/vzauartcc/data-parser/internal/processors"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/x/mongo/driver/connstring"
 )
 
 type App struct {
 	ctx     context.Context
-	mongoDB *mongo.Database
-	redisDB *redis.Client
+	mongoDB *database.MongoRepo
+	redisDB cache.RedisClient
 }
 
 func (app *App) Run() {
@@ -74,6 +72,8 @@ func main() {
 		panic(err)
 	}
 
+	mongoRepo := &database.MongoRepo{Db: mongoClient.Database(mongoURI.Database)}
+
 	redisClient := cache.NewRedisClient(os.Getenv("REDIS_URI"))
 
 	defer func() {
@@ -87,7 +87,7 @@ func main() {
 
 	app := &App{
 		ctx:     ctx,
-		mongoDB: mongoClient.Database(mongoURI.Database),
+		mongoDB: mongoRepo,
 		redisDB: redisClient,
 	}
 

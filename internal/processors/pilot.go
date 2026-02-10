@@ -9,20 +9,15 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/vzauartcc/data-parser/config"
+	"github.com/vzauartcc/data-parser/internal/cache"
+	"github.com/vzauartcc/data-parser/internal/database"
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mongo.Database, redisClient *redis.Client) error {
-	_, err := mongoDB.Collection("pilotsOnline").DeleteMany(ctx, bson.M{})
-	if err != nil {
-		log.Printf("Error cleaning pilotsOnline collection: %v\n", err)
-	}
-
-	dataPilots := make([]string, 0)
-
+func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB database.MongoDatabase, redisClient cache.RedisClient) error {
 	redisData, err := redisClient.Get(ctx, "pilots").Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return err

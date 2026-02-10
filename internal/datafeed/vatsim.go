@@ -128,6 +128,10 @@ func FetchVatsimDatafeed(ctx context.Context) (VatsimFeed, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return VatsimFeed{}, fmt.Errorf("%w: %s", ErrInvalidStatus, resp.Status)
+	}
+
 	var retval VatsimFeed
 
 	err = json.NewDecoder(resp.Body).Decode(&retval)

@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/vzauartcc/data-parser/config"
+	"github.com/vzauartcc/data-parser/internal/cache"
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 )
 
-func AtisFeed(ctx context.Context, atiss []datafeed.VatsimATIS, redisClient *redis.Client) error {
+func AtisFeed(ctx context.Context, atiss []datafeed.VatsimATIS, redisClient cache.RedisClient) error {
 	const mainKey = "atis"
 
 	const tempKey = "atis:temp"

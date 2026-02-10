@@ -3,9 +3,14 @@ package datafeed
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
+)
+
+var (
+	ErrInvalidStatus = errors.New("invalid status code returned")
 )
 
 type Pirep struct {
@@ -74,6 +79,10 @@ func FetchPirepFeed(ctx context.Context) ([]Pirep, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidStatus, resp.Status)
+	}
 
 	retval := make([]Pirep, 0)
 

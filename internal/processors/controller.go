@@ -8,7 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/vzauartcc/data-parser/internal/cache"
+	"github.com/vzauartcc/data-parser/internal/database"
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 	"github.com/vzauartcc/data-parser/internal/models"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -29,7 +30,7 @@ const (
 	tempKey    = "controllers:temp"
 )
 
-func ControllerFeed(ctx context.Context, controllers []datafeed.VnasUser, mongoDB *mongo.Database, redisClient *redis.Client) error {
+func ControllerFeed(ctx context.Context, controllers []datafeed.VnasUser, mongoDB database.MongoDatabase, redisClient cache.RedisClient) error {
 	var (
 		redisPipe         = redisClient.Pipeline()
 		coll              = mongoDB.Collection("atcOnline")
@@ -174,7 +175,7 @@ func ControllerFeed(ctx context.Context, controllers []datafeed.VnasUser, mongoD
 	return nil
 }
 
-func logSession(ctx context.Context, controller datafeed.VnasUser, mongoDB *mongo.Database) mongo.WriteModel {
+func logSession(ctx context.Context, controller datafeed.VnasUser, mongoDB database.MongoDatabase) mongo.WriteModel {
 	var session *models.ControllerHours
 
 	err := mongoDB.Collection("controllerHours").

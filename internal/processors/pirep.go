@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/vzauartcc/data-parser/config"
+	"github.com/vzauartcc/data-parser/internal/database"
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -17,7 +18,7 @@ import (
 
 var multiSpace = regexp.MustCompile(`\s+`)
 
-func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB *mongo.Database) error {
+func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.MongoDatabase) error {
 	expired := time.Now().Add(-2 * time.Hour)
 
 	_, err := mongoDB.Collection("pireps").DeleteMany(ctx, bson.M{

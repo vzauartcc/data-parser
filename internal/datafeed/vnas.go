@@ -89,6 +89,10 @@ func FetchVnasFeed(ctx context.Context) (VnasControllerFeed, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return VnasControllerFeed{}, fmt.Errorf("%w: %s", ErrInvalidStatus, resp.Status)
+	}
+
 	var feed ControllerFeed
 
 	err = json.NewDecoder(resp.Body).Decode(&feed)
