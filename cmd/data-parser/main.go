@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -18,8 +19,30 @@ import (
 	"go.mongodb.org/mongo-driver/v2/x/mongo/driver/connstring"
 )
 
-var redisClient *redis.Client
-var mongoDB *mongo.Database
+type App struct {
+	ctx     context.Context
+	mongoDB *mongo.Database
+	redisDB *redis.Client
+}
+
+func (app *App) Run() {
+	if app.redisDB == nil {
+		log.Println("Redis client is not set up.")
+		return
+	}
+
+	if app.mongoDB == nil {
+		log.Println("MongoDB is not set up.")
+		return
+	}
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	log.Printf("Alloc = %v MiB\tTotal Alloc = %v MiB\tSys = %v MiB\tNumGC = %v\n", m.Alloc/1024/1024, m.TotalAlloc/1024/1024, m.Sys/1024/1024, m.NumGC)
+
+	app.doVatsimFeed()
+}
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -51,9 +74,7 @@ func main() {
 		panic(err)
 	}
 
-	mongoDB = mongoClient.Database(mongoURI.Database)
-
-	redisClient = cache.NewRedisClient(os.Getenv("REDIS_URI"))
+	redisClient := cache.NewRedisClient(os.Getenv("REDIS_URI"))
 
 	defer func() {
 		_ = redisClient.Close()
@@ -64,19 +85,27 @@ func main() {
 		panic(err)
 	}
 
+	app := &App{
+		ctx:     ctx,
+		mongoDB: mongoClient.Database(mongoURI.Database),
+		redisDB: redisClient,
+	}
+
 	runner := cron.New(cron.WithSeconds())
 
-	_, err = runner.AddFunc("*/15 * * * * *", func() {
-		runParser(ctx)
-	})
+	_, err = runner.AddFunc("*/15 * * * * *", app.Run)
 	if err != nil {
-		log.Println("Failed to add cron job for VATSIM/vNAS data")
+		log.Println("Failed to add cron job for VATSIM data")
 		panic(err)
 	}
 
-	_, err = runner.AddFunc("0 */5 * * * *", func() {
-		doPirepFeed(ctx)
-	})
+	_, err = runner.AddFunc("*/15 * * * * *", app.doVnasFeed)
+	if err != nil {
+		log.Println("Failed to add cron job for vNAS data")
+		panic(err)
+	}
+
+	_, err = runner.AddFunc("0 */5 * * * *", app.doPirepFeed)
 	if err != nil {
 		log.Println("Failed to add cron job for PIREPs")
 		panic(err)
@@ -97,59 +126,45 @@ func main() {
 	log.Println("Bye!")
 }
 
-func runParser(ctx context.Context) {
-	if redisClient == nil {
-		log.Fatalln("Redis client is not set up.")
-	}
-
-	if mongoDB == nil {
-		log.Fatalln("MongoDB is not set up.")
-	}
-
-	go doVnasFeed(ctx)
-
-	go doVatsimFeed(ctx)
-}
-
-func doVnasFeed(ctx context.Context) {
-	data, err := datafeed.FetchVnasFeed(ctx)
+func (app *App) doVnasFeed() {
+	data, err := datafeed.FetchVnasFeed(app.ctx)
 	if err != nil {
 		log.Printf("Error during VNAS fetch: %v", err)
 		return
 	}
 
-	err = processors.ControllerFeed(ctx, data.Controllers, mongoDB, redisClient)
+	err = processors.ControllerFeed(app.ctx, data.Controllers, app.mongoDB, app.redisDB)
 	if err != nil {
 		log.Printf("Error processing controllers: %v\n", err)
 	}
 }
 
-func doVatsimFeed(ctx context.Context) {
-	data, err := datafeed.FetchVatsimDatafeed(ctx)
+func (app *App) doVatsimFeed() {
+	data, err := datafeed.FetchVatsimDatafeed(app.ctx)
 	if err != nil {
 		log.Printf("Error during VATSIM fetch: %v\n", err)
 		return
 	}
 
-	err2 := processors.PilotFeed(ctx, data.Pilots, mongoDB, redisClient)
+	err2 := processors.PilotFeed(app.ctx, data.Pilots, app.mongoDB, app.redisDB)
 	if err2 != nil {
 		log.Printf("Error processing pilots: %v\n", err2)
 	}
 
-	err3 := processors.AtisFeed(ctx, data.ATISs, redisClient)
+	err3 := processors.AtisFeed(app.ctx, data.ATISs, app.redisDB)
 	if err3 != nil {
 		log.Printf("Error processing ATISs: %v\n", err3)
 	}
 }
 
-func doPirepFeed(ctx context.Context) {
-	data, err := datafeed.FetchPirepFeed(ctx)
+func (app *App) doPirepFeed() {
+	data, err := datafeed.FetchPirepFeed(app.ctx)
 	if err != nil {
 		log.Printf("Error during PIREP fetch: %v", err)
 		return
 	}
 
-	err = processors.PirepFeed(ctx, data, mongoDB)
+	err = processors.PirepFeed(app.ctx, data, app.mongoDB)
 	if err != nil {
 		log.Printf("Error processing PIREPs: %v\n", err)
 	}

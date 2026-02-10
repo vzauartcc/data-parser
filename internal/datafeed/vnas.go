@@ -26,15 +26,15 @@ type ControllerFeed struct {
 }
 
 type VnasController struct {
-	ArtccID           string         `json:"artccId"`
-	PrimaryFacilityID string         `json:"primaryFacilityId"`
-	PrimaryPositionID string         `json:"primaryPositionId"`
-	Role              string         `json:"role"`
-	Positions         []VnasPosition `json:"positions"`
-	IsActive          bool           `json:"isActive"`
-	IsObserver        bool           `json:"isObserver"`
-	LoginTime         time.Time      `json:"loginTime"`
-	VatsimData        VnasVatsimData `json:"vatsimData"`
+	ArtccID string `json:"artccId"`
+	// PrimaryFacilityID string         `json:"primaryFacilityId"`
+	// PrimaryPositionID string         `json:"primaryPositionId"`
+	Role string `json:"role"`
+	// Positions         []VnasPosition `json:"positions"`
+	IsActive   bool           `json:"isActive"`
+	IsObserver bool           `json:"isObserver"`
+	LoginTime  time.Time      `json:"loginTime"`
+	VatsimData VnasVatsimData `json:"vatsimData"`
 }
 
 type VnasPosition struct {
@@ -58,14 +58,14 @@ type VnasPosition struct {
 }
 
 type VnasVatsimData struct {
-	CID              string `json:"cid"`
-	RealName         string `json:"realName"`
-	ControllerInfo   string `json:"controllerInfo"`
-	UserRating       string `json:"userRating"`
-	RequestedRating  string `json:"requestedRating"`
-	Callsign         string `json:"callsign"`
-	FacilityType     string `json:"facilityType"`
-	PrimaryFrequency int64  `json:"primaryFrequency"`
+	CID            string `json:"cid"`
+	RealName       string `json:"realName"`
+	ControllerInfo string `json:"controllerInfo"`
+	// UserRating       string `json:"userRating"`
+	RequestedRating string `json:"requestedRating"`
+	Callsign        string `json:"callsign"`
+	// FacilityType     string `json:"facilityType"`
+	PrimaryFrequency int64 `json:"primaryFrequency"`
 }
 
 var vNasURL = fmt.Sprintf(
@@ -74,7 +74,10 @@ var vNasURL = fmt.Sprintf(
 )
 
 func FetchVnasFeed(ctx context.Context) (VnasControllerFeed, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+	cty, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(cty, http.MethodGet,
 		vNasURL, nil)
 	if err != nil {
 		return VnasControllerFeed{}, err

@@ -4,6 +4,7 @@ version: "2"
 linters:
   default: all
   disable:
+    - containedctx
     - contextcheck
     - cyclop
     - depguard

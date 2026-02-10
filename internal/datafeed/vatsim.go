@@ -9,13 +9,13 @@ import (
 )
 
 type VatsimFeed struct {
-	General         VatsimGeneralInfo      `json:"general"`
-	Pilots          []VatsimPilot          `json:"pilots"`
-	ATISs           []VatsimATIS           `json:"atis"`
-	Prefiles        []VatimsPrefile        `json:"prefiles"`
-	Ratings         []VatsimRating         `json:"rating"`
-	PilotRatings    []VatsimPilotRating    `json:"pilotRating"`
-	MilitaryRatings []VatsimMilitaryRating `json:"militaryRating"`
+	// General         VatsimGeneralInfo      `json:"general"`
+	Pilots []VatsimPilot `json:"pilots"`
+	ATISs  []VatsimATIS  `json:"atis"`
+	// Prefiles        []VatimsPrefile        `json:"prefiles"`
+	// Ratings         []VatsimRating         `json:"rating"`
+	// PilotRatings    []VatsimPilotRating    `json:"pilotRating"`
+	// MilitaryRatings []VatsimMilitaryRating `json:"militaryRating"`
 }
 
 type VatsimGeneralInfo struct {
@@ -28,57 +28,57 @@ type VatsimGeneralInfo struct {
 }
 
 type VatsimPilot struct {
-	CID            int               `json:"cid"`
-	Name           string            `json:"string"`
-	Callsign       string            `json:"callsign"`
-	Server         string            `json:"server"`
-	PilotRating    int               `json:"pilot_rating"`
-	MilitaryRating int               `json:"military_rating"`
-	Latitude       float64           `json:"latitude"`
-	Longitude      float64           `json:"longitude"`
-	Altitude       int               `json:"altitude"`
-	Groundspeed    int               `json:"groundspeed"`
-	Transponder    string            `json:"transponder"`
-	Heading        int               `json:"heading"`
-	QnhInHg        float64           `json:"qnh_i_hg"`
-	QnhInMb        float64           `json:"qnh_mb"`
-	FlightPlan     *VatsimFlightPlan `json:"flight_plan"`
-	LogonTime      time.Time         `json:"logon_time"`
-	LastUpdated    time.Time         `json:"last_updated"`
+	CID      int    `json:"cid"`
+	Name     string `json:"name"`
+	Callsign string `json:"callsign"`
+	// Server         string            `json:"server"`
+	// PilotRating    int               `json:"pilot_rating"`
+	// MilitaryRating int               `json:"military_rating"`
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
+	Altitude    int     `json:"altitude"`
+	Groundspeed int     `json:"groundspeed"`
+	Transponder string  `json:"transponder"`
+	Heading     int     `json:"heading"`
+	// QnhInHg        float64           `json:"qnh_i_hg"`
+	// QnhInMb        float64           `json:"qnh_mb"`
+	FlightPlan *VatsimFlightPlan `json:"flight_plan"`
+	// LogonTime      time.Time         `json:"logon_time"`
+	// LastUpdated    time.Time         `json:"last_updated"`
 }
 
 type VatsimFlightPlan struct {
-	FlightRules         string `json:"flight_rules"`
-	Aircraft            string `json:"aircraft"`
-	AircraftFAA         string `json:"aircraft_faa"`
-	AircraftShort       string `json:"aircraft_short"`
-	Departure           string `json:"departure"`
-	Arrival             string `json:"arrival"`
-	Alternate           string `json:"alternate"`
-	CruiseTAS           string `json:"cruise_tas"`
-	RequestedAltitude   string `json:"altitude"`
-	DepartureTime       string `json:"deptime"`
-	EnrouteTime         string `json:"enroute_time"`
-	FuelTime            string `json:"fuel_time"`
-	Remarks             string `json:"remarks"`
-	Route               string `json:"route"`
-	RevisionID          int    `json:"revision_id"`
-	AssignedTransponder string `json:"assigned_transponder"`
+	// FlightRules         string `json:"flight_rules"`
+	// Aircraft            string `json:"aircraft"`
+	AircraftFAA string `json:"aircraft_faa"`
+	// AircraftShort       string `json:"aircraft_short"`
+	Departure string `json:"departure"`
+	Arrival   string `json:"arrival"`
+	// Alternate           string `json:"alternate"`
+	// CruiseTAS           string `json:"cruise_tas"`
+	RequestedAltitude string `json:"altitude"`
+	// DepartureTime       string `json:"deptime"`
+	// EnrouteTime         string `json:"enroute_time"`
+	// FuelTime            string `json:"fuel_time"`
+	Remarks string `json:"remarks"`
+	Route   string `json:"route"`
+	// RevisionID          int    `json:"revision_id"`
+	// AssignedTransponder string `json:"assigned_transponder"`
 }
 
 type VatsimATIS struct {
-	CID         int       `json:"cid"`
-	Name        string    `json:"name"`
-	Callsign    string    `json:"callsign"`
-	Frequency   string    `json:"frequency"`
-	Facility    int       `json:"facility"`
-	Rating      int       `json:"rating"`
-	Server      string    `json:"server"`
-	VisualRange int       `json:"visual_range"`
-	ATISCode    string    `json:"atis_code"`
-	TextATIS    []string  `json:"text_atis"`
-	LastUpdated time.Time `json:"last_updated"`
-	LogonTime   time.Time `json:"logon_time"`
+	// CID         int       `json:"cid"`
+	// Name        string    `json:"name"`
+	Callsign string `json:"callsign"`
+	// Frequency   string    `json:"frequency"`
+	// Facility    int       `json:"facility"`
+	// Rating      int       `json:"rating"`
+	// Server      string    `json:"server"`
+	// VisualRange int       `json:"visual_range"`
+	ATISCode string `json:"atis_code"`
+	// TextATIS    []string  `json:"text_atis"`
+	// LastUpdated time.Time `json:"last_updated"`
+	// LogonTime   time.Time `json:"logon_time"`
 }
 
 type VatimsPrefile struct {
@@ -113,7 +113,10 @@ var vatsimURL = fmt.Sprintf(
 )
 
 func FetchVatsimDatafeed(ctx context.Context) (VatsimFeed, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+	cty, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(cty, http.MethodGet,
 		vatsimURL, nil)
 	if err != nil {
 		return VatsimFeed{}, err
