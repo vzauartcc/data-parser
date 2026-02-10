@@ -3,10 +3,7 @@ package processors
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
-	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +12,7 @@ import (
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mongo.Database, redisClient *redis.Client) error {
@@ -29,6 +27,14 @@ func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mong
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return err
 	}
+
+	var (
+		dataPilotsSlice = make([]string, 0)
+		dataPilotsMap   = make(map[string]struct{})
+		redisPipe       = redisClient.Pipeline()
+		coll            = mongoDB.Collection("pilotsOnline")
+		upsertModels    = make([]mongo.WriteModel, 0)
+	)
 
 	redisPilots := make([]string, 0)
 	if len(redisData) > 0 {
@@ -45,12 +51,9 @@ func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mong
 		if config.Airports[pilot.FlightPlan.Departure] ||
 			config.Airports[pilot.FlightPlan.Arrival] ||
 			config.IsPointInAirspace(pilot.Latitude, pilot.Longitude) {
-			plannedCruise := pilot.FlightPlan.RequestedAltitude
-			if strings.Contains(pilot.FlightPlan.RequestedAltitude, "FL") {
-				plannedCruise = strings.ReplaceAll(plannedCruise, "FL", "") + "00"
-			}
+			plannedCruise := formatCruiseAltitude(pilot.FlightPlan.RequestedAltitude)
 
-			_, err = mongoDB.Collection("pilotsOnline").InsertOne(ctx, bson.M{
+			toSave := bson.M{"$set": bson.M{
 				"cid":           pilot.CID,
 				"name":          pilot.Name,
 				"callsign":      pilot.Callsign,
@@ -66,52 +69,76 @@ func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB *mong
 				"plannedCruise": plannedCruise,
 				"route":         pilot.FlightPlan.Route,
 				"remarks":       pilot.FlightPlan.Remarks,
-			})
-			if err != nil {
-				log.Printf("Error inserting pilot %s: %v\n", pilot.Callsign, err)
-			}
+			}}
 
-			dataPilots = append(dataPilots, pilot.Callsign)
+			upsertModels = append(upsertModels, mongo.NewUpdateOneModel().SetFilter(bson.M{"callsign": pilot.Callsign}).SetUpdate(toSave).SetUpsert(true))
 
-			_, err = redisClient.HMSet(ctx, "PILOT:"+pilot.Callsign,
+			dataPilotsMap[pilot.Callsign] = struct{}{}
+			dataPilotsSlice = append(dataPilotsSlice, pilot.Callsign)
+
+			key := "PILOT:" + pilot.Callsign
+
+			redisPipe.HSet(ctx, key,
 				"callsign", pilot.Callsign,
-				"lat", fmt.Sprintf("%f", pilot.Latitude),
-				"lng", fmt.Sprintf("%f", pilot.Longitude),
-				"speed", strconv.Itoa(pilot.Groundspeed),
-				"heading", strconv.Itoa(pilot.Heading),
-				"altitude", strconv.Itoa(pilot.Altitude),
+				"lat", pilot.Latitude,
+				"lng", pilot.Longitude,
+				"speed", pilot.Groundspeed,
+				"heading", pilot.Heading,
+				"altitude", pilot.Altitude,
 				"cruise", plannedCruise,
-				"destination", pilot.FlightPlan.Arrival,
-			).Result()
-			if err != nil {
-				log.Printf("Error setting pilot %s in redis: %v\n", pilot.Callsign, err)
-			}
+				"destination", pilot.FlightPlan.Arrival)
 
-			_, err = redisClient.Expire(ctx, "PILOT:"+pilot.Callsign, 5*time.Minute).Result()
-			if err != nil {
-				log.Printf("Error expiring pilot %s: %v\n", pilot.Callsign, err)
-			}
-
-			_, err = redisClient.Publish(ctx, "PILOT:UPDATE", pilot.Callsign).Result()
-			if err != nil {
-				log.Printf("Error updating pilot %s: %v\n", pilot.Callsign, err)
-			}
+			redisPipe.Expire(ctx, key, 5*time.Minute)
+			redisPipe.Publish(ctx, "PILOT:UPDATE", pilot.Callsign)
 		}
 	}
+
+	if len(dataPilotsSlice) > 0 {
+		_, err = redisPipe.Exec(ctx)
+		if err != nil {
+			log.Printf("Error executing pilots pipeline: %v\n", err)
+		}
+	}
+
+	if len(upsertModels) > 0 {
+		_, err = coll.BulkWrite(ctx, upsertModels, options.BulkWrite().SetOrdered(false))
+		if err != nil {
+			log.Printf("Error saving pilots to MongoDB: %v\n", err)
+		}
+	}
+
+	deletePipeline := redisClient.Pipeline()
+	toDelete := []string{}
 
 	for _, pilot := range redisPilots {
-		if !slices.Contains(dataPilots, pilot) {
-			_, err = redisClient.Publish(ctx, "PILOT:DELETE", pilot).Result()
-			if err != nil {
-				log.Printf("Error deleting pilot %s: %v\n", pilot, err)
-			}
+		_, ok := dataPilotsMap[pilot]
+		if pilot != "" && !ok {
+			toDelete = append(toDelete, pilot)
+			deletePipeline.Publish(ctx, "PILOT:DELETE", pilot)
 		}
 	}
 
-	_, err = redisClient.Set(ctx, "pilots", strings.Join(dataPilots, "|"), 65*time.Second).Result()
+	if len(toDelete) > 0 {
+		_, err = coll.DeleteMany(ctx, bson.M{"callsign": bson.M{"$in": toDelete}})
+		if err != nil {
+			log.Printf("Error deleting offline pilots: %v\n", err)
+		}
+	}
+
+	deletePipeline.Set(ctx, "pilots", strings.Join(dataPilotsSlice, "|"), 65*time.Second)
+
+	_, err = deletePipeline.Exec(ctx)
 	if err != nil {
-		log.Printf("Error setting online pilots: %v\n", err)
+		log.Printf("Error publish pilot changes: %v\n", err)
 	}
 
 	return nil
+}
+
+func formatCruiseAltitude(alt string) string {
+	if strings.Contains(alt, "FL") {
+		return strings.ReplaceAll(alt, "FL", "") + "00"
+	}
+
+	return alt
 }

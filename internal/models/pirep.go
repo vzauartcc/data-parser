@@ -7,7 +7,7 @@ import (
 )
 
 type Pirep struct {
-	ID            bson.ObjectID `bson:"_id"`
+	ID            bson.ObjectID `bson:"_id,omitempty"`
 	ReportTime    time.Time     `bson:"reportTime"`
 	Location      string        `bson:"location"`
 	Aircraft      string        `bson:"aircraft"`

@@ -3,7 +3,7 @@ package models
 import "go.mongodb.org/mongo-driver/v2/bson"
 
 type PilotOnline struct {
-	ID            bson.ObjectID `bson:"_id"`
+	ID            bson.ObjectID `bson:"_id,omitempty"`
 	CID           int           `bson:"cid"`
 	Name          string        `bson:"name"`
 	Callsign      string        `bson:"callsign"`

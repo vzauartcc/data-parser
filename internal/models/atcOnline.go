@@ -7,7 +7,7 @@ import (
 )
 
 type AtcOnline struct {
-	ID        bson.ObjectID `bson:"_id"`
+	ID        bson.ObjectID `bson:"_id,omitempty"`
 	CID       int           `bson:"cid"`
 	Name      string        `bson:"name"`
 	Rating    int           `bson:"rating"`

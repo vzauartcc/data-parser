@@ -7,7 +7,7 @@ import (
 )
 
 type ControllerHours struct {
-	ID           bson.ObjectID `bson:"_id"`
+	ID           bson.ObjectID `bson:"_id,omitempty"`
 	CID          int           `bson:"cid"`
 	TimeStart    time.Time     `bson:"timeStart"`
 	TimeEnd      time.Time     `bson:"timeEnd"`

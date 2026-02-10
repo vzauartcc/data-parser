@@ -2,9 +2,7 @@ package processors
 
 import (
 	"context"
-	"errors"
 	"log"
-	"slices"
 	"strings"
 	"time"
 
@@ -14,52 +12,67 @@ import (
 )
 
 func AtisFeed(ctx context.Context, atiss []datafeed.VatsimATIS, redisClient *redis.Client) error {
-	dataAtis := make([]string, 0)
+	const mainKey = "atis"
 
-	redisData, err := redisClient.Get(ctx, "atis").Result()
-	if err != nil && !errors.Is(err, redis.Nil) {
-		return err
-	}
+	const tempKey = "atis:temp"
 
-	redisAtis := make([]string, 0)
-	if len(redisData) > 0 {
-		redisAtis = strings.Split(redisData, "|")
-	}
+	const expiration = 70 * time.Second
+
+	activeAirports := make([]any, 0)
+	pipe := redisClient.Pipeline()
 
 	for _, atis := range atiss {
+		if len(atis.Callsign) < 4 {
+			continue
+		}
+
 		airport := atis.Callsign[0:4]
 		if strings.TrimSpace(atis.ATISCode) != "" && config.Airports[airport] {
-			dataAtis = append(dataAtis, airport)
+			activeAirports = append(activeAirports, airport)
 
-			_, err = redisClient.Expire(ctx, "ATIS:"+airport, 65*time.Second).Result()
-			if err != nil {
-				log.Printf("Error setting expiry for ATIS:%s: %v\n", airport, err)
-			}
-
-			_, err = redisClient.Publish(ctx, "ATIS:"+airport, atis.ATISCode).Result()
-			if err != nil {
-				log.Printf("Error publishing ATIS:%s: %v\n", airport, err)
-			}
+			pipe.Expire(ctx, "ATIS:"+airport, 65*time.Second)
+			pipe.Publish(ctx, "ATIS:"+airport, atis.ATISCode)
 		}
 	}
 
-	for _, atis := range redisAtis {
-		if !slices.Contains(dataAtis, atis) {
-			_, err = redisClient.Publish(ctx, "ATIS:DELETE", atis).Result()
-			if err != nil {
-				log.Printf("Error publishing  ATIS:DELETE for %s: %v\n", atis, err)
-			}
+	var expiredAirports []string
 
-			_, err = redisClient.Del(ctx, "ATIS:"+atis).Result()
-			if err != nil {
-				log.Printf("Error deleting ATIS:%s: %v\n", atis, err)
-			}
+	if len(activeAirports) > 0 {
+		redisClient.SAdd(ctx, tempKey, activeAirports...)
+		redisClient.Expire(ctx, tempKey, expiration)
+
+		expiredAirports, _ = redisClient.SDiff(ctx, mainKey, tempKey).Result()
+
+		err := redisClient.Rename(ctx, tempKey, mainKey).Err()
+		if err != nil {
+			log.Printf("Error renaming atis key: %v\n", err)
+		}
+	} else {
+		expiredAirports, _ = redisClient.SMembers(ctx, mainKey).Result()
+
+		err := redisClient.Del(ctx, mainKey).Err()
+		if err != nil {
+			log.Printf("Error deleting atis key: %v\n", err)
 		}
 	}
 
-	_, err = redisClient.Set(ctx, "atis", strings.Join(dataAtis, "|"), 65*time.Second).Result()
+	_, err := pipe.Exec(ctx)
 	if err != nil {
-		log.Printf("Error setting list of online ATISs: %v\n", err)
+		log.Printf("Error executing ATIS pipeline: %v\n", err)
+	}
+
+	if len(expiredAirports) > 0 {
+		deletePipe := redisClient.Pipeline()
+
+		for _, airport := range expiredAirports {
+			deletePipe.Publish(ctx, "ATIS:DELETE", airport)
+			deletePipe.Del(ctx, "ATIS:"+airport)
+		}
+
+		_, err = deletePipe.Exec(ctx)
+		if err != nil {
+			log.Printf("Error cleaning up ATIS: %v\n", err)
+		}
 	}
 
 	return nil

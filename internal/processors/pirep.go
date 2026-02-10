@@ -12,6 +12,7 @@ import (
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var multiSpace = regexp.MustCompile(`\s+`)
@@ -28,6 +29,8 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB *mongo.Data
 	if err != nil {
 		log.Printf("Error cleaning up pirep collection: %v\n", err)
 	}
+
+	upsertModels := make([]mongo.WriteModel, 0)
 
 	for _, pirep := range pireps {
 		if pirep.AircraftType == "" || pirep.RawObservation[:3] == "" ||
@@ -98,7 +101,7 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB *mongo.Data
 			turb = strings.TrimSpace(multiSpace.ReplaceAllString(turb, " "))
 		}
 
-		_, err = mongoDB.Collection("pireps").InsertOne(ctx, bson.M{
+		upsertModels = append(upsertModels, mongo.NewInsertOneModel().SetDocument(bson.M{
 			"reportTime":  time.UnixMilli(int64(pirep.ObservationTime * 1000)),
 			"location":    pirep.RawObservation[:3],
 			"aircraft":    pirep.AircraftType,
@@ -112,11 +115,10 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB *mongo.Data
 			"urgent":      pirep.PirepType == "Urgent PIREP",
 			"raw":         pirep.RawObservation,
 			"manual":      false,
-		})
-		if err != nil {
-			log.Printf("Error inserting pirep: %v\n", err)
-		}
+		}))
 	}
 
-	return nil
+	_, err = mongoDB.Collection("pireps").BulkWrite(ctx, upsertModels, options.BulkWrite().SetOrdered(false))
+
+	return err
 }
