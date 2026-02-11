@@ -58,6 +58,7 @@ linters:
         - xj
         - yi
         - yj
+        - tt
   exclusions:
     generated: lax
     presets:

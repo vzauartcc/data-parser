@@ -23,25 +23,6 @@ type App struct {
 	redisDB cache.RedisClient
 }
 
-func (app *App) Run() {
-	if app.redisDB == nil {
-		log.Println("Redis client is not set up.")
-		return
-	}
-
-	if app.mongoDB == nil {
-		log.Println("MongoDB is not set up.")
-		return
-	}
-
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	log.Printf("Alloc = %v MiB\tTotal Alloc = %v MiB\tSys = %v MiB\tNumGC = %v\n", m.Alloc/1024/1024, m.TotalAlloc/1024/1024, m.Sys/1024/1024, m.NumGC)
-
-	app.doVatsimFeed()
-}
-
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -93,9 +74,15 @@ func main() {
 
 	runner := cron.New(cron.WithSeconds())
 
-	_, err = runner.AddFunc("*/15 * * * * *", app.Run)
+	_, err = runner.AddFunc("*/15 * * * * *", app.doVatsimFeed)
 	if err != nil {
 		log.Println("Failed to add cron job for VATSIM data")
+		panic(err)
+	}
+
+	_, err = runner.AddFunc("0 * * * * *", app.doMetarFeed)
+	if err != nil {
+		log.Println("Failed to add cron job for METAR data")
 		panic(err)
 	}
 
@@ -126,20 +113,22 @@ func main() {
 	log.Println("Bye!")
 }
 
-func (app *App) doVnasFeed() {
-	data, err := datafeed.FetchVnasFeed(app.ctx)
-	if err != nil {
-		log.Printf("Error during VNAS fetch: %v", err)
+func (app *App) doVatsimFeed() {
+	if app.redisDB == nil {
+		log.Println("Redis client is not set up.")
 		return
 	}
 
-	err = processors.ControllerFeed(app.ctx, data.Controllers, app.mongoDB, app.redisDB)
-	if err != nil {
-		log.Printf("Error processing controllers: %v\n", err)
+	if app.mongoDB == nil {
+		log.Println("MongoDB is not set up.")
+		return
 	}
-}
 
-func (app *App) doVatsimFeed() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	log.Printf("Alloc = %v MiB\tTotal Alloc = %v MiB\tSys = %v MiB\tNumGC = %v\n", m.Alloc/1024/1024, m.TotalAlloc/1024/1024, m.Sys/1024/1024, m.NumGC)
+
 	data, err := datafeed.FetchVatsimDatafeed(app.ctx)
 	if err != nil {
 		log.Printf("Error during VATSIM fetch: %v\n", err)
@@ -157,6 +146,19 @@ func (app *App) doVatsimFeed() {
 	}
 }
 
+func (app *App) doVnasFeed() {
+	data, err := datafeed.FetchVnasFeed(app.ctx)
+	if err != nil {
+		log.Printf("Error during VNAS fetch: %v", err)
+		return
+	}
+
+	err = processors.ControllerFeed(app.ctx, data.Controllers, app.mongoDB, app.redisDB)
+	if err != nil {
+		log.Printf("Error processing controllers: %v\n", err)
+	}
+}
+
 func (app *App) doPirepFeed() {
 	data, err := datafeed.FetchPirepFeed(app.ctx)
 	if err != nil {
@@ -167,5 +169,18 @@ func (app *App) doPirepFeed() {
 	err = processors.PirepFeed(app.ctx, data, app.mongoDB)
 	if err != nil {
 		log.Printf("Error processing PIREPs: %v\n", err)
+	}
+}
+
+func (app *App) doMetarFeed() {
+	data, err := datafeed.FetchMetarFeed(app.ctx)
+	if err != nil {
+		log.Printf("Error during METAR fetch: %v", err)
+		return
+	}
+
+	err = processors.MetarFeed(app.ctx, data, app.redisDB)
+	if err != nil {
+		log.Printf("Error processing METARs: %v\n", err)
 	}
 }
