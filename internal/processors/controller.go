@@ -201,7 +201,7 @@ func logSession(ctx context.Context, controller datafeed.VnasUser, mongoDB datab
 			}
 
 			return mongo.NewInsertOneModel().
-				SetDocument(bson.M{"$set": bson.M{
+				SetDocument(bson.M{
 					"cid":          controller.CID,
 					"timeStart":    startTime,
 					"timeEnd":      time.Now(),
@@ -209,7 +209,7 @@ func logSession(ctx context.Context, controller datafeed.VnasUser, mongoDB datab
 					"isStudent":    controller.Role == "Student",
 					"isInstructor": controller.Role == "Instructor",
 					"wentInactive": false,
-				}})
+				})
 		}
 	} else {
 		session.TimeEnd = time.Now()

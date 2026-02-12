@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+if [ -z "${1:-}" ]; then
+    echo "Usage: $0 <config_name> [arguments...]"
+    exit 1
+fi
+
 if ! command -v doppler &> /dev/null; then
     echo "Error: Doppler CLI not found. Install it first."
     exit 1
