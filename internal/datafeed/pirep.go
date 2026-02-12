@@ -65,7 +65,7 @@ var pirepURL = fmt.Sprintf(
 )
 
 func FetchPirepFeed(ctx context.Context) ([]Pirep, error) {
-	cty, cancel := context.WithTimeout(ctx, 5*time.Second)
+	cty, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(cty, http.MethodGet,

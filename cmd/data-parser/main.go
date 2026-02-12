@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 	"time"
 
@@ -123,11 +122,6 @@ func (app *App) doVatsimFeed() {
 		log.Println("MongoDB is not set up.")
 		return
 	}
-
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	log.Printf("Alloc = %v MiB\tTotal Alloc = %v MiB\tSys = %v MiB\tNumGC = %v\n", m.Alloc/1024/1024, m.TotalAlloc/1024/1024, m.Sys/1024/1024, m.NumGC)
 
 	data, err := datafeed.FetchVatsimDatafeed(app.ctx)
 	if err != nil {
