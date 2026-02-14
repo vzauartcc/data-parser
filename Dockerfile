@@ -1,23 +1,17 @@
-# 1. Build Typescript
-FROM node:24-slim AS builder
+FROM golang:1.25.5-alpine AS builder
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-COPY package*.json ./
+COPY go.mod go.sum ./
 
-RUN npm ci
+RUN go mod download
 
-COPY . .
+COPY . ./
 
-RUN npm run build
+RUN CGO_ENABLED=0 GOOS=linux GOAMD64=v3 go build -v -ldflags="-s -w" -o data-parser ./cmd/data-parser/main.go
 
-# 2. Copy built files to new bare image
-FROM gcr.io/distroless/nodejs24-debian12 AS production
-ENV NODE_ENV=production
+FROM gcr.io/distroless/static-debian13
 
-WORKDIR /usr/src/app
+COPY --from=builder /app/data-parser /
 
-COPY --from=builder /usr/src/app/dist ./dist
-COPY --from=builder /usr/src/app/node_modules ./node_modules
-
-CMD ["dist/app.js"]
+ENTRYPOINT ["./data-parser"]
