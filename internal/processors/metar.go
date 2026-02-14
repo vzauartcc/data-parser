@@ -23,3 +23,35 @@ func MetarFeed(ctx context.Context, data []string, redis cache.RedisClient) erro
 
 	return err
 }
+
+func ExtendMetarTTL(ctx context.Context, redis cache.RedisClient) error {
+	log.Println("Extending METAR TTL")
+
+	var cursor uint64
+
+	for {
+		keys, nextCursor, err := redis.Scan(ctx, cursor, "METAR:*", 100).Result()
+		if err != nil {
+			return err
+		}
+
+		if len(keys) > 0 {
+			pipe := redis.Pipeline()
+			for _, key := range keys {
+				pipe.Expire(ctx, key, 10*time.Minute)
+			}
+
+			_, err := pipe.Exec(ctx)
+			if err != nil {
+				return err
+			}
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return nil
+}

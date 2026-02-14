@@ -66,3 +66,32 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 		})
 	}
 }
+
+func TestExtendMetarTTL(t *testing.T) {
+	ctx := context.Background()
+
+	mockData := map[string]string{
+		"METAR:KORD": "data1",
+		"METAR:KMDW": "data2",
+		"OTHER:KEY":  "data3",
+	}
+
+	mockPipe := &cache.MockPipeline{
+		Published: make(map[string]string),
+	}
+
+	client := &cache.MockRedis{
+		Data: mockData,
+		Pipe: mockPipe,
+	}
+
+	err := ExtendMetarTTL(ctx, client)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	expectedKeys := 2
+	if len(mockPipe.ExpiredKeys) != expectedKeys {
+		t.Errorf("expected %d expired keys, got %d", expectedKeys, len(mockPipe.ExpiredKeys))
+	}
+}

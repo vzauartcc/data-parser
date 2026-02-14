@@ -14,9 +14,8 @@ import (
 )
 
 var metarURL = "https://metar.vatsim.net/"
-var retry = true
 
-func FetchMetarFeed(ctx context.Context) ([]string, error) {
+func FetchMetarFeed(ctx context.Context, retryInterval time.Duration) ([]string, error) {
 	cty, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
@@ -40,12 +39,10 @@ func FetchMetarFeed(ctx context.Context) ([]string, error) {
 		if errors.Is(cty.Err(), context.DeadlineExceeded) {
 			log.Printf("Metar fetch timed out")
 
-			if retry {
-				retry = false
+			if retryInterval != 0 {
+				time.Sleep(retryInterval)
 
-				time.Sleep(30 * time.Second)
-
-				return FetchMetarFeed(ctx)
+				return FetchMetarFeed(ctx, 0*time.Second)
 			}
 
 			return nil, nil
@@ -56,12 +53,8 @@ func FetchMetarFeed(ctx context.Context) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode != http.StatusInternalServerError && retry {
-			retry = false
-
-			time.Sleep(30 * time.Second)
-
-			return FetchMetarFeed(ctx)
+		if resp.StatusCode != http.StatusInternalServerError && retryInterval != 0 {
+			return FetchMetarFeed(ctx, 0*time.Second)
 		}
 
 		return nil, fmt.Errorf("%w: %s", ErrInvalidStatus, resp.Status)

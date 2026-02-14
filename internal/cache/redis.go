@@ -17,6 +17,7 @@ type RedisCmdable interface {
 	Rename(ctx context.Context, key, newkey string) *redis.StatusCmd
 	Get(ctx context.Context, key string) *redis.StringCmd
 	Set(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd
+	Scan(ctx context.Context, cursor uint64, match string, count int64) *redis.ScanCmd
 }
 
 type RedisClient interface {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestFetchMetarFeed(t *testing.T) {
@@ -47,7 +48,7 @@ func TestFetchMetarFeed(t *testing.T) {
 
 			defer func() { metarURL = oldURL }()
 
-			got, err := FetchMetarFeed(context.Background())
+			got, err := FetchMetarFeed(context.Background(), 0*time.Second)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("FetchMetarFeed() error = %v, wantErr %v", err, tt.wantErr)

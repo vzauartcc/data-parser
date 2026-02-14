@@ -5,6 +5,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"path"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -44,7 +45,8 @@ func (m *MockPipeline) HSet(_ context.Context, key string, values ...any) *redis
 	return redis.NewIntResult(1, nil)
 }
 
-func (m *MockPipeline) Expire(_ context.Context, _ string, _ time.Duration) *redis.BoolCmd {
+func (m *MockPipeline) Expire(_ context.Context, key string, _ time.Duration) *redis.BoolCmd {
+	m.ExpiredKeys = append(m.ExpiredKeys, key)
 	return redis.NewBoolResult(true, nil)
 }
 
@@ -146,4 +148,20 @@ func (m *MockRedis) Set(_ context.Context, _ string, _ any, _ time.Duration) *re
 func (m *MockPipeline) LPush(_ context.Context, key string, values ...any) *redis.IntCmd {
 	m.RecordedCmds = append(m.RecordedCmds, "LPUSH:"+key)
 	return redis.NewIntResult(int64(len(values)), nil)
+}
+
+func (m *MockRedis) Scan(ctx context.Context, _ uint64, match string, _ int64) *redis.ScanCmd {
+	foundKeys := make([]string, 0)
+
+	for k := range m.Data {
+		matched, err := path.Match(match, k)
+		if err == nil && matched {
+			foundKeys = append(foundKeys, k)
+		}
+	}
+
+	cmd := redis.NewScanCmd(ctx, nil)
+	cmd.SetVal(foundKeys, 0)
+
+	return cmd
 }

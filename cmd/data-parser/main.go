@@ -143,7 +143,7 @@ func (app *App) doVatsimFeed() {
 func (app *App) doVnasFeed() {
 	data, err := datafeed.FetchVnasFeed(app.ctx)
 	if err != nil {
-		log.Printf("Error during VNAS fetch: %v", err)
+		log.Printf("Error during vNAS fetch: %v", err)
 		return
 	}
 
@@ -167,9 +167,15 @@ func (app *App) doPirepFeed() {
 }
 
 func (app *App) doMetarFeed() {
-	data, err := datafeed.FetchMetarFeed(app.ctx)
+	data, err := datafeed.FetchMetarFeed(app.ctx, 30*time.Second)
 	if err != nil {
 		log.Printf("Error during METAR fetch: %v", err)
+
+		err = processors.ExtendMetarTTL(app.ctx, app.redisDB)
+		if err != nil {
+			log.Printf("Error extending TTL: %v\n", err)
+		}
+
 		return
 	}
 
