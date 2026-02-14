@@ -73,13 +73,13 @@ func main() {
 
 	runner := cron.New(cron.WithSeconds())
 
-	_, err = runner.AddFunc("*/15 * * * * *", app.doVatsimFeed)
+	_, err = runner.AddFunc("0 * * * * *", app.doVatsimFeed)
 	if err != nil {
 		log.Println("Failed to add cron job for VATSIM data")
 		panic(err)
 	}
 
-	_, err = runner.AddFunc("0 * * * * *", app.doMetarFeed)
+	_, err = runner.AddFunc("0 */5 * * * *", app.doMetarFeed)
 	if err != nil {
 		log.Println("Failed to add cron job for METAR data")
 		panic(err)

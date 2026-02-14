@@ -13,7 +13,7 @@ func MetarFeed(ctx context.Context, data []string, redis cache.RedisClient) erro
 
 	for _, metar := range data {
 		if len(metar) > 4 {
-			pipe.Set(ctx, "METAR:"+metar[0:4], metar, 5*time.Minute)
+			pipe.Set(ctx, "METAR:"+metar[0:4], metar, 10*time.Minute)
 		} else {
 			log.Printf("Skipping invalid METAR: %s\n", metar)
 		}
