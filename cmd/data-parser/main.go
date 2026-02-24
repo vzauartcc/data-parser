@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,9 +18,10 @@ import (
 )
 
 type App struct {
-	ctx     context.Context
-	mongoDB *database.MongoRepo
-	redisDB cache.RedisClient
+	ctx        context.Context
+	mongoDB    *database.MongoRepo
+	redisDB    cache.RedisClient
+	httpClient *http.Client
 }
 
 func main() {
@@ -69,6 +71,14 @@ func main() {
 		ctx:     ctx,
 		mongoDB: mongoRepo,
 		redisDB: redisClient,
+		httpClient: &http.Client{
+			Timeout: 60 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				IdleConnTimeout:     90 * time.Second,
+				MaxIdleConnsPerHost: 20,
+			},
+		},
 	}
 
 	runner := cron.New(cron.WithSeconds())
@@ -123,7 +133,7 @@ func (app *App) doVatsimFeed() {
 		return
 	}
 
-	data, err := datafeed.FetchVatsimDatafeed(app.ctx)
+	data, err := datafeed.FetchVatsimDatafeed(app.ctx, app.httpClient)
 	if err != nil {
 		log.Printf("Error during VATSIM fetch: %v\n", err)
 		return
@@ -141,7 +151,7 @@ func (app *App) doVatsimFeed() {
 }
 
 func (app *App) doVnasFeed() {
-	data, err := datafeed.FetchVnasFeed(app.ctx)
+	data, err := datafeed.FetchVnasFeed(app.ctx, app.httpClient)
 	if err != nil {
 		log.Printf("Error during vNAS fetch: %v", err)
 		return
@@ -154,7 +164,7 @@ func (app *App) doVnasFeed() {
 }
 
 func (app *App) doPirepFeed() {
-	data, err := datafeed.FetchPirepFeed(app.ctx)
+	data, err := datafeed.FetchPirepFeed(app.ctx, app.httpClient)
 	if err != nil {
 		log.Printf("Error during PIREP fetch: %v", err)
 		return
@@ -167,7 +177,7 @@ func (app *App) doPirepFeed() {
 }
 
 func (app *App) doMetarFeed() {
-	data, err := datafeed.FetchMetarFeed(app.ctx, 30*time.Second)
+	data, err := datafeed.FetchMetarFeed(app.ctx, app.httpClient, 30*time.Second)
 	if err != nil {
 		log.Printf("Error during METAR fetch: %v", err)
 

@@ -2,7 +2,6 @@ package datafeed
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -73,29 +72,11 @@ var vNasURL = fmt.Sprintf(
 	time.Now().UnixMilli(),
 )
 
-func FetchVnasFeed(ctx context.Context) (VnasControllerFeed, error) {
+func FetchVnasFeed(ctx context.Context, client *http.Client) (VnasControllerFeed, error) {
 	cty, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(cty, http.MethodGet,
-		vNasURL, nil)
-	if err != nil {
-		return VnasControllerFeed{}, err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return VnasControllerFeed{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return VnasControllerFeed{}, fmt.Errorf("%w: %s", ErrInvalidStatus, resp.Status)
-	}
-
-	var feed ControllerFeed
-
-	err = json.NewDecoder(resp.Body).Decode(&feed)
+	feed, err := doRequest[ControllerFeed](cty, client, vNasURL)
 	if err != nil {
 		return VnasControllerFeed{}, err
 	}

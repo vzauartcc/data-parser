@@ -51,7 +51,7 @@ func TestFetchVatsimDatafeed(t *testing.T) {
 
 	ctx := context.Background()
 
-	feed, err := FetchVatsimDatafeed(ctx)
+	feed, err := FetchVatsimDatafeed(ctx, server.Client())
 	if err != nil {
 		t.Fatalf("FetchVatsimDatafeed failed: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestFetchVatsimDatafeed_Failures(t *testing.T) {
 
 		defer func() { vatsimURL = oldURL }()
 
-		feed, err := FetchVatsimDatafeed(context.Background())
+		feed, err := FetchVatsimDatafeed(context.Background(), server.Client())
 		if err == nil {
 			t.Error("expected error on 404 Status Not Found, but got nil")
 		}
@@ -112,7 +112,7 @@ func TestFetchVatsimDatafeed_Failures(t *testing.T) {
 
 		defer func() { vatsimURL = oldURL }()
 
-		_, err := FetchVatsimDatafeed(context.Background())
+		_, err := FetchVatsimDatafeed(context.Background(), server.Client())
 		if err == nil {
 			t.Error("expected JSON unmarshal error, but got nil")
 		}
@@ -137,7 +137,7 @@ func TestFetchVatsimDatafeed_Failures(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer cancel()
 
-		_, err := FetchVatsimDatafeed(ctx)
+		_, err := FetchVatsimDatafeed(ctx, server.Client())
 		if err == nil {
 			t.Error("expected error for context timeout, but got nil")
 		}

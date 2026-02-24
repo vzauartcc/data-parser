@@ -2,15 +2,9 @@ package datafeed
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
-)
-
-var (
-	ErrInvalidStatus = errors.New("invalid status code returned")
 )
 
 type Pirep struct {
@@ -64,32 +58,9 @@ var pirepURL = fmt.Sprintf(
 	time.Now().UnixMilli(),
 )
 
-func FetchPirepFeed(ctx context.Context) ([]Pirep, error) {
+func FetchPirepFeed(ctx context.Context, client *http.Client) ([]Pirep, error) {
 	cty, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(cty, http.MethodGet,
-		pirepURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%w: %s", ErrInvalidStatus, resp.Status)
-	}
-
-	retval := make([]Pirep, 0)
-
-	err = json.NewDecoder(resp.Body).Decode(&retval)
-	if err != nil {
-		return nil, err
-	}
-
-	return retval, nil
+	return doRequest[[]Pirep](cty, client, pirepURL)
 }
