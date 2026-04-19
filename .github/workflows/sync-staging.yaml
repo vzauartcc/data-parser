@@ -5,6 +5,8 @@ on:
     branches:
       - main
 
+permissions: {}
+
 jobs:
   sync-branch:
     runs-on: ubuntu-latest
@@ -18,7 +20,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.ACCESS_TOKEN }}
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Configure Git
         run: |
