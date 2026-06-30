@@ -2,7 +2,6 @@ package datafeed
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -112,32 +111,9 @@ var vatsimURL = fmt.Sprintf(
 	time.Now().UnixMilli(),
 )
 
-func FetchVatsimDatafeed(ctx context.Context) (VatsimFeed, error) {
+func FetchVatsimDatafeed(ctx context.Context, client *http.Client) (VatsimFeed, error) {
 	cty, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(cty, http.MethodGet,
-		vatsimURL, nil)
-	if err != nil {
-		return VatsimFeed{}, err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return VatsimFeed{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return VatsimFeed{}, fmt.Errorf("%w: %s", ErrInvalidStatus, resp.Status)
-	}
-
-	var retval VatsimFeed
-
-	err = json.NewDecoder(resp.Body).Decode(&retval)
-	if err != nil {
-		return VatsimFeed{}, err
-	}
-
-	return retval, nil
+	return doRequest[VatsimFeed](cty, client, vatsimURL)
 }

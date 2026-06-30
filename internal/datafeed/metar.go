@@ -15,7 +15,7 @@ import (
 
 var metarURL = "https://metar.vatsim.net/"
 
-func FetchMetarFeed(ctx context.Context, retryInterval time.Duration) ([]string, error) {
+func FetchMetarFeed(ctx context.Context, client *http.Client, retryInterval time.Duration) ([]string, error) {
 	cty, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
@@ -28,13 +28,15 @@ func FetchMetarFeed(ctx context.Context, retryInterval time.Duration) ([]string,
 		builder.WriteString(k)
 	}
 
+	// Not json data, so we can't use doRequest
+
 	req, err := http.NewRequestWithContext(cty, http.MethodGet,
 		metarURL+builder.String(), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		if errors.Is(cty.Err(), context.DeadlineExceeded) {
 			log.Printf("Metar fetch timed out")
@@ -42,7 +44,7 @@ func FetchMetarFeed(ctx context.Context, retryInterval time.Duration) ([]string,
 			if retryInterval != 0 {
 				time.Sleep(retryInterval)
 
-				return FetchMetarFeed(ctx, 0*time.Second)
+				return FetchMetarFeed(ctx, client, 0*time.Second)
 			}
 
 			return nil, nil
@@ -54,7 +56,7 @@ func FetchMetarFeed(ctx context.Context, retryInterval time.Duration) ([]string,
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode != http.StatusInternalServerError && retryInterval != 0 {
-			return FetchMetarFeed(ctx, 0*time.Second)
+			return FetchMetarFeed(ctx, client, 0*time.Second)
 		}
 
 		return nil, fmt.Errorf("%w: %s", ErrInvalidStatus, resp.Status)

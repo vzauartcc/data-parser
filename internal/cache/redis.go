@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9/maintnotifications"
 )
 
 type RedisCmdable interface {
@@ -31,6 +32,11 @@ func NewRedisClient(addr string) *redis.Client {
 	opt, err := redis.ParseURL(addr)
 	if err != nil {
 		panic(err)
+	}
+
+	opt.ClientName = "data-parser"
+	opt.MaintNotificationsConfig = &maintnotifications.Config{
+		Mode: maintnotifications.ModeDisabled,
 	}
 
 	return redis.NewClient(opt)

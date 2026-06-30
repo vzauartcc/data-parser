@@ -42,7 +42,7 @@ func TestFetchVnasFeed(t *testing.T) {
 
 	defer func() { vNasURL = oldURL }()
 
-	result, err := FetchVnasFeed(context.Background())
+	result, err := FetchVnasFeed(context.Background(), server.Client())
 	if err != nil {
 		t.Fatalf("FetchVnasFeed failed: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestFetchVnasFeed_Failures(t *testing.T) {
 
 		defer func() { vNasURL = oldURL }()
 
-		_, err := FetchVnasFeed(context.Background())
+		_, err := FetchVnasFeed(context.Background(), server.Client())
 		if err == nil {
 			t.Error("expected error on 500 status code, but got nil")
 		}
@@ -93,7 +93,7 @@ func TestFetchVnasFeed_Failures(t *testing.T) {
 
 		defer func() { vNasURL = oldURL }()
 
-		_, err := FetchVnasFeed(context.Background())
+		_, err := FetchVnasFeed(context.Background(), server.Client())
 		if err == nil {
 			t.Error("expected error on malformed JSON, but got nil")
 		}
@@ -114,7 +114,7 @@ func TestFetchVnasFeed_Failures(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 		defer cancel()
 
-		_, err := FetchVnasFeed(ctx)
+		_, err := FetchVnasFeed(ctx, server.Client())
 		if err == nil {
 			t.Error("expected error due to context timeout, but got nil")
 		}

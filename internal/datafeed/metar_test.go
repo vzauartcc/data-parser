@@ -48,7 +48,7 @@ func TestFetchMetarFeed(t *testing.T) {
 
 			defer func() { metarURL = oldURL }()
 
-			got, err := FetchMetarFeed(context.Background(), 0*time.Second)
+			got, err := FetchMetarFeed(context.Background(), server.Client(), 0*time.Second)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("FetchMetarFeed() error = %v, wantErr %v", err, tt.wantErr)

@@ -47,7 +47,7 @@ func TestFetchPirepFeed(t *testing.T) {
 
 	ctx := context.Background()
 
-	results, err := FetchPirepFeed(ctx)
+	results, err := FetchPirepFeed(ctx, server.Client())
 	if err != nil {
 		t.Fatalf("FetchPirepFeed returned an error: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestFetchPirepFeed_Failures(t *testing.T) {
 
 		defer func() { pirepURL = oldURL }()
 
-		_, err := FetchPirepFeed(context.Background())
+		_, err := FetchPirepFeed(context.Background(), server.Client())
 		if err == nil {
 			t.Error("expected an error when the server returns 500, but got nil")
 		}
@@ -102,7 +102,7 @@ func TestFetchPirepFeed_Failures(t *testing.T) {
 
 		defer func() { pirepURL = oldURL }()
 
-		_, err := FetchPirepFeed(context.Background())
+		_, err := FetchPirepFeed(context.Background(), server.Client())
 		if err == nil {
 			t.Error("expected a JSON decoding error, but got nil")
 		}
@@ -123,7 +123,7 @@ func TestFetchPirepFeed_Failures(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer cancel()
 
-		_, err := FetchPirepFeed(ctx)
+		_, err := FetchPirepFeed(ctx, server.Client())
 		if err == nil {
 			t.Error("expected context deadline exceeded error, but got nil")
 		}
