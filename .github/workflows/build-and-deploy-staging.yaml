@@ -10,6 +10,8 @@ on:
       - "go.sum"
   workflow_dispatch:
 
+permissions: {}
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: vzauartcc/data-parser
@@ -19,6 +21,10 @@ env:
 jobs:
   Build-and-Push-to-GHCR:
     runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+      contents: read
 
     steps:
       - name: Checkout master
