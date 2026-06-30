@@ -107,6 +107,12 @@ func main() {
 		panic(err)
 	}
 
+	_, err = runner.AddFunc("5 9 5 * * *", app.doCleanup)
+	if err != nil {
+		log.Println("Failed to add cron job for cleanup")
+		panic(err)
+	}
+
 	runner.Start()
 
 	log.Println("data-parser running. . . .")
@@ -193,4 +199,8 @@ func (app *App) doMetarFeed() {
 	if err != nil {
 		log.Printf("Error processing METARs: %v\n", err)
 	}
+}
+
+func (app *App) doCleanup() {
+	processors.Cleanup(app.ctx, app.mongoDB)
 }
