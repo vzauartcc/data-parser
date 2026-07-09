@@ -10,12 +10,13 @@ import (
 	"strings"
 	"time"
 
+	metartafparser "github.com/ryansavara/go-metar-taf-parser"
 	"github.com/vzauartcc/data-parser/config"
 )
 
 var metarURL = "https://metar.vatsim.net/"
 
-func FetchMetarFeed(ctx context.Context, client *http.Client, retryInterval time.Duration) ([]string, error) {
+func FetchMetarFeed(ctx context.Context, client *http.Client, retryInterval time.Duration) ([]metartafparser.Metar, error) {
 	cty, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
@@ -28,7 +29,7 @@ func FetchMetarFeed(ctx context.Context, client *http.Client, retryInterval time
 		builder.WriteString(k)
 	}
 
-	// Not json data, so we can't use doRequest
+	// Not json data, so we can't use doRequest.
 
 	req, err := http.NewRequestWithContext(cty, http.MethodGet,
 		metarURL+builder.String(), nil)
@@ -62,16 +63,27 @@ func FetchMetarFeed(ctx context.Context, client *http.Client, retryInterval time
 		return nil, fmt.Errorf("%w: %s", ErrInvalidStatus, resp.Status)
 	}
 
-	var retval []string
+	var metars []string
 
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
-		retval = append(retval, scanner.Text())
+		metars = append(metars, scanner.Text())
 	}
 
 	err = scanner.Err()
 	if err != nil {
 		return nil, err
+	}
+
+	var retval []metartafparser.Metar
+
+	for i := range metars {
+		given := metars[i]
+
+		metar, err := metartafparser.ParseMetar(given, nil)
+		if err == nil {
+			retval = append(retval, *metar)
+		}
 	}
 
 	return retval, nil

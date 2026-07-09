@@ -117,6 +117,9 @@ func main() {
 
 	log.Println("data-parser running. . . .")
 
+	app.doMetarFeed()
+	app.doPirepFeed()
+
 	<-ctx.Done()
 
 	log.Println("data-parser shutting down. . . .")
