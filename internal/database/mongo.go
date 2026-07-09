@@ -14,12 +14,18 @@ type MongoDatabase interface {
 }
 
 type MongoCollection interface {
-	BulkWrite(ctx context.Context, models []mongo.WriteModel, opts ...options.Lister[options.BulkWriteOptions]) (*mongo.BulkWriteResult, error)
-	DeleteMany(ctx context.Context, filter any, opts ...options.Lister[options.DeleteManyOptions]) (*mongo.DeleteResult, error)
-	InsertOne(ctx context.Context, document any, opts ...options.Lister[options.InsertOneOptions]) (*mongo.InsertOneResult, error)
-	Find(ctx context.Context, filter any, opts ...options.Lister[options.FindOptions]) (MongoCursor, error)
-	FindOne(ctx context.Context, filter any, opts ...options.Lister[options.FindOneOptions]) MongoSingleResult
-	UpdateByID(ctx context.Context, id any, update any, opts ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error)
+	BulkWrite(ctx context.Context, models []mongo.WriteModel,
+		opts ...options.Lister[options.BulkWriteOptions]) (*mongo.BulkWriteResult, error)
+	DeleteMany(ctx context.Context, filter any,
+		opts ...options.Lister[options.DeleteManyOptions]) (*mongo.DeleteResult, error)
+	InsertOne(ctx context.Context, document any,
+		opts ...options.Lister[options.InsertOneOptions]) (*mongo.InsertOneResult, error)
+	Find(ctx context.Context, filter any,
+		opts ...options.Lister[options.FindOptions]) (MongoCursor, error)
+	FindOne(ctx context.Context, filter any,
+		opts ...options.Lister[options.FindOneOptions]) MongoSingleResult
+	UpdateByID(ctx context.Context, id any, update any,
+		opts ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error)
 }
 
 type MongoSingleResult interface {
@@ -48,13 +54,22 @@ func (r *MongoRepo) Collection(name string, opts ...options.Lister[options.Colle
 	}
 }
 
-func (c *MongoRepoCollection) Find(ctx context.Context, filter any, opts ...options.Lister[options.FindOptions]) (MongoCursor, error) {
+func (c *MongoRepoCollection) Find(
+	ctx context.Context,
+	filter any,
+	opts ...options.Lister[options.FindOptions],
+) (MongoCursor, error) {
 	// Use the name of the embedded type
 	cursor, err := c.Collection.Find(ctx, filter, opts...)
+
 	return cursor, err
 }
 
-func (c *MongoRepoCollection) FindOne(ctx context.Context, filter any, opts ...options.Lister[options.FindOneOptions]) MongoSingleResult {
+func (c *MongoRepoCollection) FindOne(
+	ctx context.Context,
+	filter any,
+	opts ...options.Lister[options.FindOneOptions],
+) MongoSingleResult {
 	return c.Collection.FindOne(ctx, filter, opts...)
 }
 

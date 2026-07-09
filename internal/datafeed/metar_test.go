@@ -54,6 +54,7 @@ func TestFetchMetarFeed(t *testing.T) {
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("FetchMetarFeed() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 

@@ -17,12 +17,14 @@ func MetarFeed(ctx context.Context, data []metartafparser.Metar, redis cache.Red
 		station := metar.Station
 		if len(station) != 4 {
 			log.Printf("Skipping invalid METAR: %s\n", metar.Message)
+
 			continue
 		}
 
 		jsonData, err := json.Marshal(metar)
 		if err != nil {
 			log.Printf("Failed to marshal METAR: %s\n", err)
+
 			continue
 		}
 

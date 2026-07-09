@@ -16,7 +16,11 @@ import (
 
 var metarURL = "https://metar.vatsim.net/"
 
-func FetchMetarFeed(ctx context.Context, client *http.Client, retryInterval time.Duration) ([]metartafparser.Metar, error) {
+func FetchMetarFeed(
+	ctx context.Context,
+	client *http.Client,
+	retryInterval time.Duration,
+) ([]metartafparser.Metar, error) {
 	cty, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 

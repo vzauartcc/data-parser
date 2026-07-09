@@ -47,11 +47,13 @@ func (m *MockPipeline) HSet(_ context.Context, key string, values ...any) *redis
 
 func (m *MockPipeline) Expire(_ context.Context, key string, _ time.Duration) *redis.BoolCmd {
 	m.ExpiredKeys = append(m.ExpiredKeys, key)
+
 	return redis.NewBoolResult(true, nil)
 }
 
 func (m *MockPipeline) Set(_ context.Context, key string, _ any, _ time.Duration) *redis.StatusCmd {
 	m.RecordedCmds = append(m.RecordedCmds, "SET:"+key)
+
 	return redis.NewStatusResult("OK", nil)
 }
 
@@ -65,6 +67,7 @@ func (m *MockPipeline) Rename(_ context.Context, _, _ string) *redis.StatusCmd {
 
 func (m *MockPipeline) Del(_ context.Context, keys ...string) *redis.IntCmd {
 	m.ExpiredKeys = append(m.ExpiredKeys, keys...)
+
 	return redis.NewIntResult(int64(len(keys)), nil)
 }
 
@@ -125,6 +128,7 @@ func (m *MockRedis) Ping(_ context.Context) *redis.StatusCmd {
 
 func (m *MockRedis) Publish(_ context.Context, channel string, message any) *redis.IntCmd {
 	m.Pipe.Published[channel] = message.(string)
+
 	return redis.NewIntResult(1, nil)
 }
 
@@ -147,6 +151,7 @@ func (m *MockRedis) Set(_ context.Context, _ string, _ any, _ time.Duration) *re
 
 func (m *MockPipeline) LPush(_ context.Context, key string, values ...any) *redis.IntCmd {
 	m.RecordedCmds = append(m.RecordedCmds, "LPUSH:"+key)
+
 	return redis.NewIntResult(int64(len(values)), nil)
 }
 

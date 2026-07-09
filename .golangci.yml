@@ -1,43 +1,23 @@
-# Modified from https://raw.githubusercontent.com/go-openapi/errors/refs/heads/master/.golangci.yml
-
 version: "2"
 linters:
   default: all
   disable:
     - containedctx
-    - contextcheck
     - cyclop
     - depguard
-    - errchkjson
-    #    - errorlint
-    - exhaustive
     - exhaustruct
     - forcetypeassert
     - funlen
     - gochecknoglobals
-    #    - gochecknoinits
     - gocognit # check once in a while
-    #    - godot
     - godox
-    - gosmopolitan
-    - inamedparam
     - ireturn
-    - lll
     - mnd
-    - musttag
-    #    - nestif
-    - nlreturn
-    #    - nonamedreturns
-    - paralleltest
+    - paralleltest # duplicate of tparallel
     - tagliatelle
     - testpackage
-    - thelper
-    #    - tparallel
-    - unparam
-    #    - varnamelen
-    #    - whitespace
     - wrapcheck
-    - wsl
+    - wsl # deprecated
   settings:
     dupl:
       threshold: 200
@@ -48,6 +28,8 @@ linters:
       min-complexity: 45
     nestif:
       min-complexity: 10
+    paralleltest:
+      ignore-missing: true
     varnamelen:
       ignore-names:
         - err
