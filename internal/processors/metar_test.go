@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	metartafparser "github.com/ryansavara/go-metar-taf-parser"
 	"github.com/vzauartcc/data-parser/internal/cache"
 )
 
@@ -12,13 +13,17 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		input          []string
+		input          []metartafparser.Metar
 		expectedCmds   []string
 		expectedLength int
 	}{
 		{
-			name:  "processes valid METARs and ignores short ones",
-			input: []string{"KORD 121530Z", "BAD", "KMDW 121600Z"},
+			name: "processes valid METARs and ignores short ones",
+			input: []metartafparser.Metar{
+				{Station: "KORD", Message: "KORD 121530Z"},
+				{Station: "BAD", Message: "BAD"},
+				{Station: "KMDW", Message: "KMDW 121600Z"},
+			},
 			expectedCmds: []string{
 				"SET:METAR:KORD",
 				"SET:METAR:KMDW",
@@ -27,13 +32,17 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 		},
 		{
 			name:           "handles empty input",
-			input:          []string{},
+			input:          []metartafparser.Metar{},
 			expectedCmds:   nil,
 			expectedLength: 0,
 		},
 		{
-			name:           "skips all invalid input",
-			input:          []string{"123", "A", ""},
+			name: "skips all invalid input",
+			input: []metartafparser.Metar{
+				{Station: "123", Message: "123"},
+				{Station: "A", Message: "A"},
+				{Station: "", Message: ""},
+			},
 			expectedCmds:   nil,
 			expectedLength: 0,
 		},

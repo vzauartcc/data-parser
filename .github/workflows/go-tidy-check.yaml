@@ -1,0 +1,31 @@
+# Make sure to enable 'Require status checks to pass before merging' on the branch protection,
+# and to select the 'go-tidy-check' action.
+
+name: Go Tidy Check
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  go-tidy-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
+        with:
+          go-version-file: "go.mod"
+
+      - name: Run go mod tidy
+        run: go mod tidy
+
+        # If 'go mod tidy' changed anything, git status will be dirty, and this command exits with code 1
+      - name: Check for changes
+        run: git diff --exit-code go.mod go.sum

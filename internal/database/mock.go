@@ -36,7 +36,11 @@ func (m *MockCollection) DeleteMany(
 	return &mongo.DeleteResult{}, nil
 }
 
-func (m *MockCollection) InsertOne(_ context.Context, _ any, _ ...options.Lister[options.InsertOneOptions]) (*mongo.InsertOneResult, error) {
+func (m *MockCollection) InsertOne(
+	_ context.Context,
+	_ any,
+	_ ...options.Lister[options.InsertOneOptions],
+) (*mongo.InsertOneResult, error) {
 	return &mongo.InsertOneResult{InsertedID: "mock-id"}, nil
 }
 
@@ -89,10 +93,19 @@ func (m *MockSingleResult) Decode(val any) error {
 	return bson.Unmarshal(bytes, val)
 }
 
-func (m *MockCollection) FindOne(_ context.Context, _ any, _ ...options.Lister[options.FindOneOptions]) MongoSingleResult {
+func (m *MockCollection) FindOne(
+	_ context.Context,
+	_ any,
+	_ ...options.Lister[options.FindOneOptions],
+) MongoSingleResult {
 	return &MockSingleResult{Data: bson.M{"cid": 1234567}}
 }
 
-func (m *MockCollection) UpdateByID(_ context.Context, _ any, _ any, _ ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
+func (m *MockCollection) UpdateByID(
+	_ context.Context,
+	_ any,
+	_ any,
+	_ ...options.Lister[options.UpdateOneOptions],
+) (*mongo.UpdateResult, error) {
 	return &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1}, nil
 }
