@@ -17,7 +17,12 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB database.MongoDatabase, redisClient cache.RedisClient) error {
+func PilotFeed(
+	ctx context.Context,
+	pilots []datafeed.VatsimPilot,
+	mongoDB database.MongoDatabase,
+	redisClient cache.RedisClient,
+) error {
 	redisData, err := redisClient.Get(ctx, "pilots").Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return err
@@ -66,7 +71,10 @@ func PilotFeed(ctx context.Context, pilots []datafeed.VatsimPilot, mongoDB datab
 				"remarks":       pilot.FlightPlan.Remarks,
 			}}
 
-			upsertModels = append(upsertModels, mongo.NewUpdateOneModel().SetFilter(bson.M{"callsign": pilot.Callsign}).SetUpdate(toSave).SetUpsert(true))
+			upsertModels = append(
+				upsertModels,
+				mongo.NewUpdateOneModel().SetFilter(bson.M{"callsign": pilot.Callsign}).SetUpdate(toSave).SetUpsert(true),
+			)
 
 			dataPilotsMap[pilot.Callsign] = struct{}{}
 			dataPilotsSlice = append(dataPilotsSlice, pilot.Callsign)

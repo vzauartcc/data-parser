@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	metartafparser "github.com/ryansavara/go-metar-taf-parser"
 )
 
 func TestFetchMetarFeed(t *testing.T) {
@@ -52,16 +54,26 @@ func TestFetchMetarFeed(t *testing.T) {
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("FetchMetarFeed() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 
 			if !tt.wantErr {
 				if len(got) != 2 {
-					t.Errorf("expected 2 metar strings, got %d", len(got))
+					t.Errorf("expected 2 metar structs, got %d", len(got))
 				}
 
-				if got[0] != "KORD 112151Z 24008KT" {
-					t.Errorf("expected KORD metar first, got %s", got[0])
+				expected, err := metartafparser.ParseMetar("KORD 112151Z 24008KT", nil)
+				if err != nil {
+					t.Fatalf("failed to parse expected metar: %v", err)
+				}
+
+				if got[0].Station != expected.Station {
+					t.Errorf("expected station %s, got %s", expected.Station, got[0].Station)
+				}
+
+				if got[0].Message != expected.Message {
+					t.Errorf("expected message %s, got %s", expected.Message, got[0].Message)
 				}
 			}
 		})

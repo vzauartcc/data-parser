@@ -1,19 +1,15 @@
 # Make sure to enable 'Require status checks to pass before merging' on the branch protection,
-# and to select the 'golangci-lint' action.
+# and to select the 'go-tidy-check' action.
 
-name: Lint
+name: Go Tidy Check
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - "**.go"
-      - "go.mod"
-      - "go.sum"
 
 permissions: {}
 
 jobs:
-  golangci-lint:
+  go-tidy-check:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,8 +23,9 @@ jobs:
         with:
           go-version-file: "go.mod"
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9
-        with:
-          version: v2.11.4
-          only-new-issues: true
+      - name: Run go mod tidy
+        run: go mod tidy
+
+        # If 'go mod tidy' changed anything, git status will be dirty, and this command exits with code 1
+      - name: Check for changes
+        run: git diff --exit-code go.mod go.sum

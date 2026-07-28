@@ -2,21 +2,33 @@ package processors
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"time"
 
+	metartafparser "github.com/ryansavara/go-metar-taf-parser"
 	"github.com/vzauartcc/data-parser/internal/cache"
 )
 
-func MetarFeed(ctx context.Context, data []string, redis cache.RedisClient) error {
+func MetarFeed(ctx context.Context, data []metartafparser.Metar, redis cache.RedisClient) error {
 	pipe := redis.Pipeline()
 
 	for _, metar := range data {
-		if len(metar) > 4 {
-			pipe.Set(ctx, "METAR:"+metar[0:4], metar, 10*time.Minute)
-		} else {
-			log.Printf("Skipping invalid METAR: %s\n", metar)
+		station := metar.Station
+		if len(station) != 4 {
+			log.Printf("Skipping invalid METAR: %s\n", metar.Message)
+
+			continue
 		}
+
+		jsonData, err := json.Marshal(metar)
+		if err != nil {
+			log.Printf("Failed to marshal METAR: %s\n", err)
+
+			continue
+		}
+
+		pipe.Set(ctx, "METAR:"+station, jsonData, 10*time.Minute)
 	}
 
 	_, err := pipe.Exec(ctx)

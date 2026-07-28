@@ -30,7 +30,12 @@ const (
 	tempKey    = "controllers:temp"
 )
 
-func ControllerFeed(ctx context.Context, controllers []datafeed.VnasUser, mongoDB database.MongoDatabase, redisClient cache.RedisClient) error {
+func ControllerFeed(
+	ctx context.Context,
+	controllers []datafeed.VnasUser,
+	mongoDB database.MongoDatabase,
+	redisClient cache.RedisClient,
+) error {
 	var (
 		redisPipe         = redisClient.Pipeline()
 		coll              = mongoDB.Collection("atcOnline")

@@ -33,12 +33,14 @@ func main() {
 	mongoURI, err := connstring.ParseAndValidate(os.Getenv("MONGO_URI"))
 	if err != nil {
 		log.Printf("Invalid MongoDB URI: %v", err)
+
 		return
 	}
 
 	mongoClient, err := database.NewMongoClient(os.Getenv("MONGO_URI"))
 	if err != nil {
 		log.Printf("Error connecting to MongoDB: %v", err)
+
 		return
 	}
 
@@ -117,6 +119,9 @@ func main() {
 
 	log.Println("data-parser running. . . .")
 
+	app.doMetarFeed()
+	app.doPirepFeed()
+
 	<-ctx.Done()
 
 	log.Println("data-parser shutting down. . . .")
@@ -131,17 +136,20 @@ func main() {
 func (app *App) doVatsimFeed() {
 	if app.redisDB == nil {
 		log.Println("Redis client is not set up.")
+
 		return
 	}
 
 	if app.mongoDB == nil {
 		log.Println("MongoDB is not set up.")
+
 		return
 	}
 
 	data, err := datafeed.FetchVatsimDatafeed(app.ctx, app.httpClient)
 	if err != nil {
 		log.Printf("Error during VATSIM fetch: %v\n", err)
+
 		return
 	}
 
@@ -160,6 +168,7 @@ func (app *App) doVnasFeed() {
 	data, err := datafeed.FetchVnasFeed(app.ctx, app.httpClient)
 	if err != nil {
 		log.Printf("Error during vNAS fetch: %v", err)
+
 		return
 	}
 
@@ -173,6 +182,7 @@ func (app *App) doPirepFeed() {
 	data, err := datafeed.FetchPirepFeed(app.ctx, app.httpClient)
 	if err != nil {
 		log.Printf("Error during PIREP fetch: %v", err)
+
 		return
 	}
 
