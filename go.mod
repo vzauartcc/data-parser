@@ -3,10 +3,10 @@ module github.com/vzauartcc/data-parser
 go 1.25.7
 
 require (
-	github.com/redis/go-redis/v9 v9.20.0
+	github.com/redis/go-redis/v9 v9.22.0
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/ryansavara/go-metar-taf-parser v0.0.4
-	go.mongodb.org/mongo-driver/v2 v2.6.0
+	github.com/ryansavara/go-metar-taf-parser v0.0.5
+	go.mongodb.org/mongo-driver/v2 v2.8.0
 )
 
 require (
@@ -19,5 +19,6 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 )
