@@ -26,9 +26,10 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 			},
 			expectedCmds: []string{
 				"SET:METAR:KORD",
+				"SET:METAR:BAD",
 				"SET:METAR:KMDW",
 			},
-			expectedLength: 2,
+			expectedLength: 3,
 		},
 		{
 			name:           "handles empty input",

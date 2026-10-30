@@ -4,18 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"regexp"
 	"time"
 
 	metartafparser "github.com/ryansavara/go-metar-taf-parser"
 	"github.com/vzauartcc/data-parser/internal/cache"
 )
 
+var stationRegexp = regexp.MustCompile(`^[A-Za-z]{3,4}$`)
+
 func MetarFeed(ctx context.Context, data []metartafparser.Metar, redis cache.RedisClient) error {
 	pipe := redis.Pipeline()
 
 	for _, metar := range data {
 		station := metar.Station
-		if len(station) != 4 {
+
+		var ok bool
+		if station != "" {
+			ok = stationRegexp.MatchString(station)
+		}
+
+		if !ok {
 			log.Printf("Skipping invalid METAR: %s\n", metar.Message)
 
 			continue
