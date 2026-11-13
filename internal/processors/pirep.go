@@ -23,10 +23,7 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 	expired := time.Now().Add(-2 * time.Hour)
 
 	_, err := mongoDB.Collection("pireps").DeleteMany(ctx, bson.M{
-		"$or": bson.A{
-			bson.M{"manual": false},
-			bson.M{"reportTime": bson.M{"$lte": expired}},
-		},
+		"reportTime": bson.M{"$lte": expired},
 	})
 	if err != nil {
 		log.Printf("Error cleaning up pirep collection: %v\n", err)

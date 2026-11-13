@@ -101,6 +101,57 @@ func TestPirepFeed(t *testing.T) {
 			}
 		}
 	}
+
+	// Verify DeletedFilter is based on expiration time, not the $or condition
+	filter, ok := pirepColl.DeletedFilter.(bson.M)
+	if !ok {
+		t.Errorf("Expected DeletedFilter to be bson.M, got %T", pirepColl.DeletedFilter)
+	} else {
+		if filter["$or"] != nil {
+			t.Errorf("Expected DeletedFilter to not contain $or, got %v", filter)
+		}
+
+		if filter["reportTime"] == nil {
+			t.Errorf("Expected DeletedFilter to contain reportTime condition")
+		}
+	}
+}
+
+func TestPirepFeed_CleanupFilter(t *testing.T) {
+	ctx := context.Background()
+
+	pirepColl := &database.MockCollection{}
+
+	mockDB := &database.MockMongoDatabase{
+		Collections: map[string]*database.MockCollection{
+			collectionPireps: pirepColl,
+		},
+	}
+
+	// Run PirepFeed with empty pireps to just trigger cleanup
+	err := PirepFeed(ctx, []datafeed.Pirep{}, mockDB)
+	if err != nil {
+		t.Fatalf("PirepFeed returned an unexpected error: %v", err)
+	}
+
+	filter, filterOk := pirepColl.DeletedFilter.(bson.M)
+	if !filterOk {
+		t.Fatalf("Expected DeletedFilter to be bson.M, got %T", pirepColl.DeletedFilter)
+	}
+
+	// Should use expiration-based filter, not $or with manual: false
+	if filter["$or"] != nil {
+		t.Errorf("Expected DeletedFilter to not contain $or, got %v", filter)
+	}
+
+	reportTimeFilter, filterOk := filter["reportTime"].(bson.M)
+	if !filterOk {
+		t.Errorf("Expected reportTime filter, got %v", filter["reportTime"])
+	}
+
+	if reportTimeFilter["$lte"] == nil {
+		t.Errorf("Expected $lte condition in reportTime filter")
+	}
 }
 
 func TestPirepModelDeserialization(t *testing.T) {
