@@ -51,6 +51,8 @@ func AtisFeed(ctx context.Context, atiss []datafeed.VatsimATIS, redisClient cach
 		err = redisClient.Rename(ctx, tempKey, mainKey).Err()
 		if err != nil {
 			log.Printf("Error renaming atis key: %v\n", err)
+		} else {
+			redisClient.Expire(ctx, mainKey, expiration)
 		}
 	} else {
 		var err error
