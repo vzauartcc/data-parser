@@ -97,9 +97,13 @@ if actualInserts > 0 {
 }
 
 func TestPirepModelDeserialization(t *testing.T) {
+	flightLevel := 340
+	visibility := 10
+	temp := 25
+
 	doc := bson.M{"reportTime": time.Now(), "location": "KORD", "aircraft": "B738",
-		"flightLevel": "340", "skyCond": "CLR", "turbulence": "MODERATE",
-		"icing": "LI", "vis": "10", "temp": "25", "wind": "27010", "urgent": false,
+		"flightLevel": flightLevel, "skyCond": "CLR", "turbulence": "MODERATE",
+		"icing": "LI", "vis": &visibility, "temp": &temp, "wind": "27010", "urgent": false,
 		"raw": "KORD 123456Z", "manual": false}
 
 	data, err := bson.Marshal(doc)
@@ -113,8 +117,50 @@ func TestPirepModelDeserialization(t *testing.T) {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 
-	if p.Temperature == nil || *p.Temperature != "25" {
-		t.Errorf("Expected Temperature to be '25', got %v", p.Temperature)
+	if p.Temperature == nil || *p.Temperature != temp {
+		t.Errorf("Expected Temperature to be %d, got %v", temp, p.Temperature)
+	}
+
+	if p.FlightLevel != flightLevel {
+		t.Errorf("Expected FlightLevel to be %d, got %d", flightLevel, p.FlightLevel)
+	}
+}
+
+func TestPirepModelRoundTrip(t *testing.T) {
+	flightLevel := 340
+	visibility := 10
+	temp := 25
+
+	raw, err := bson.Marshal(bson.M{
+		"reportTime":  time.Now(),
+		"location":    "KORD",
+		"aircraft":    "B738",
+		"flightLevel": flightLevel,
+		"skyCond":     "CLR",
+		"turbulence":  "",
+		"icing":       "",
+		"vis":         &visibility,
+		"temp":        &temp,
+		"wind":        "27010",
+		"urgent":      false,
+		"raw":         "KORD 123456Z",
+		"manual":      false,
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var pirep models.Pirep
+	if err := bson.Unmarshal(raw, &pirep); err != nil {
+		t.Fatalf("unmarshal into models.Pirep: %v", err)
+	}
+
+	if pirep.FlightLevel != flightLevel {
+		t.Errorf("Expected flightLevel %d, got %d", flightLevel, pirep.FlightLevel)
+	}
+
+	if pirep.Temperature == nil || *pirep.Temperature != temp {
+		t.Errorf("Expected temp %d, got %v", temp, pirep.Temperature)
 	}
 }
 
