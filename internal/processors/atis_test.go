@@ -40,3 +40,33 @@ func TestAtisFeed(t *testing.T) {
 		t.Error("expected KMDW to be expired/cleaned up")
 	}
 }
+
+func TestAtisFeed_ExpiredAirports(t *testing.T) {
+	ctx := context.Background()
+
+	mockPipe := &cache.MockPipeline{
+		Published:    make(map[string]string),
+		DiffResponse: []string{"KMDW"},
+	}
+	client := &cache.MockRedis{Pipe: mockPipe}
+
+	data := []datafeed.VatsimATIS{
+		{Callsign: "KORD_ATIS", ATISCode: "A"},
+	}
+
+	err := AtisFeed(ctx, data, client)
+	if err != nil {
+		t.Fatalf("AtisFeed failed: %v", err)
+	}
+
+	foundDelete := false
+	for _, k := range mockPipe.ExpiredKeys {
+		if k == "ATIS:KMDW" {
+			foundDelete = true
+		}
+	}
+
+	if !foundDelete {
+		t.Error("Expected KMDW to be identified as expired")
+	}
+}

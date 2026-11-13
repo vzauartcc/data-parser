@@ -41,16 +41,26 @@ func AtisFeed(ctx context.Context, atiss []datafeed.VatsimATIS, redisClient cach
 		redisClient.SAdd(ctx, tempKey, activeAirports...)
 		redisClient.Expire(ctx, tempKey, expiration)
 
-		expiredAirports, _ = redisClient.SDiff(ctx, mainKey, tempKey).Result()
+		var err error
+		expiredAirports, err = redisClient.SDiff(ctx, mainKey, tempKey).Result()
+		if err != nil {
+			log.Printf("Error computing expired ATIS airports: %v\n", err)
+			expiredAirports = nil
+		}
 
-		err := redisClient.Rename(ctx, tempKey, mainKey).Err()
+		err = redisClient.Rename(ctx, tempKey, mainKey).Err()
 		if err != nil {
 			log.Printf("Error renaming atis key: %v\n", err)
 		}
 	} else {
-		expiredAirports, _ = redisClient.SMembers(ctx, mainKey).Result()
+		var err error
+		expiredAirports, err = redisClient.SMembers(ctx, mainKey).Result()
+		if err != nil {
+			log.Printf("Error getting ATIS airports: %v\n", err)
+			expiredAirports = nil
+		}
 
-		err := redisClient.Del(ctx, mainKey).Err()
+		err = redisClient.Del(ctx, mainKey).Err()
 		if err != nil {
 			log.Printf("Error deleting atis key: %v\n", err)
 		}
