@@ -108,7 +108,7 @@ func ControllerFeed(
 
 			redisPipe.Expire(ctx, key, 5*time.Minute)
 			redisPipe.Publish(ctx, "CONTROLLER:UPDATE", controller.VatsimData.Callsign)
-		} else if slices.Contains(neighbors, controller.ArtccID) {
+		} else if controller.IsActive && slices.Contains(neighbors, controller.ArtccID) {
 			dataNeighbors[controller.ArtccID] = struct{}{}
 		}
 	}
@@ -176,7 +176,12 @@ func ControllerFeed(
 		neighs = append(neighs, key)
 	}
 
-	if len(neighs) > 0 {
+	if len(neighs) == 0 {
+		_, err = redisClient.Del(ctx, "neighbors").Result()
+		if err != nil {
+			log.Printf("Error clearing neighbors: %v\n", err)
+		}
+	} else {
 		_, err = redisClient.Set(ctx, "neighbors", strings.Join(neighs, "|"), 0*time.Second).Result()
 		if err != nil {
 			log.Printf("Error publishing neighbors changes: %v\n", err)
