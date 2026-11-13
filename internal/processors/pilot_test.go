@@ -2,12 +2,15 @@ package processors
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/vzauartcc/data-parser/internal/cache"
 	"github.com/vzauartcc/data-parser/internal/database"
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 )
+
+const testCollectionPilots = "pilotsOnline"
 
 func TestPilotFeed_Full(t *testing.T) {
 	ctx := context.Background()
@@ -21,7 +24,7 @@ func TestPilotFeed_Full(t *testing.T) {
 	pilotColl := &database.MockCollection{}
 	mongoMock := &database.MockMongoDatabase{
 		Collections: map[string]*database.MockCollection{
-			"pilotsOnline": pilotColl,
+			testCollectionPilots: pilotColl,
 		},
 	}
 
@@ -66,5 +69,82 @@ func TestPilotFeed_Full(t *testing.T) {
 
 	if !hasDeletePublish {
 		t.Error("Missing Redis Publish for deleted pilot DAL200")
+	}
+
+	foundDel := slices.Contains(mockPipe.ExpiredKeys, "PILOT:DAL200")
+	if !foundDel {
+		t.Errorf("Expected PILOT:DAL200 hash to be deleted, got %v", mockPipe.ExpiredKeys)
+	}
+}
+
+func TestPilotFeed_MissingRedisKey(t *testing.T) {
+	ctx := context.Background()
+
+	redisMock := &cache.MockRedis{
+		Pipe: &cache.MockPipeline{Published: make(map[string]string)},
+		Data: make(map[string]string),
+	}
+
+	pilotColl := &database.MockCollection{}
+	mongoMock := &database.MockMongoDatabase{
+		Collections: map[string]*database.MockCollection{
+			testCollectionPilots: pilotColl,
+		},
+	}
+
+	pilots := []datafeed.VatsimPilot{}
+
+	err := PilotFeed(ctx, pilots, mongoMock, redisMock)
+	if err != nil {
+		t.Fatalf("PilotFeed failed with missing Redis key: %v", err)
+	}
+
+	if pilotColl.DeletedFilter != nil {
+		t.Error("Expected no pilots to be deleted when Redis key is missing")
+	}
+}
+
+func TestPilotFeed_NoPilotsInAirspace(t *testing.T) {
+	ctx := context.Background()
+
+	mockPipe := &cache.MockPipeline{Published: make(map[string]string)}
+	redisMock := &cache.MockRedis{
+		Pipe: mockPipe,
+		Data: map[string]string{"pilots": "DAL200|AAL100"},
+	}
+
+	pilotColl := &database.MockCollection{}
+	mongoMock := &database.MockMongoDatabase{
+		Collections: map[string]*database.MockCollection{
+			testCollectionPilots: pilotColl,
+		},
+	}
+
+	// Pilot with coordinates outside ZAU airspace
+	pilots := []datafeed.VatsimPilot{
+		{
+			CID: 1234567, Callsign: "XYZ999", Latitude: 0.0, Longitude: 0.0,
+			FlightPlan: &datafeed.VatsimFlightPlan{
+				Departure: "KJFK", Arrival: "KLAX",
+				AircraftFAA: "B738", RequestedAltitude: "34000",
+			},
+		},
+	}
+
+	err := PilotFeed(ctx, pilots, mongoMock, redisMock)
+	if err != nil {
+		t.Fatalf("PilotFeed failed: %v", err)
+	}
+
+	// Pipeline should still be executed (we can verify by checking if delete commands were recorded)
+	// Since DAL200 and AAL100 are not in the current batch, they should be deleted
+	foundDel := slices.Contains(mockPipe.RecordedCmds, "PUBLISH:PILOT:DELETE:DAL200")
+	if !foundDel {
+		t.Errorf("Expected PILOT:DELETE for DAL200, got %v", mockPipe.RecordedCmds)
+	}
+
+	foundDel2 := slices.Contains(mockPipe.RecordedCmds, "PUBLISH:PILOT:DELETE:AAL100")
+	if !foundDel2 {
+		t.Errorf("Expected PILOT:DELETE for AAL100, got %v", mockPipe.RecordedCmds)
 	}
 }

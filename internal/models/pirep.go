@@ -11,12 +11,12 @@ type Pirep struct {
 	ReportTime    time.Time     `bson:"reportTime"`
 	Location      string        `bson:"location"`
 	Aircraft      string        `bson:"aircraft"`
-	FlightLevel   string        `bson:"flightLevel"`
+	FlightLevel   int           `bson:"flightLevel"`
 	SkyConditions *string       `bson:"skyCond"`
 	Turbulence    *string       `bson:"turbulence"`
 	Icing         *string       `bson:"icing"`
-	Visibility    *string       `bson:"vis"`
-	Temperatrue   *string       `bson:"temp"`
+	Visibility    *int          `bson:"vis"`
+	Temperature   *int          `bson:"temp"`
 	Wind          *string       `bson:"wind"`
 	Urgent        bool          `bson:"urgent"`
 	Raw           string        `bson:"raw"`

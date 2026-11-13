@@ -24,8 +24,12 @@ func PilotFeed(
 	redisClient cache.RedisClient,
 ) error {
 	redisData, err := redisClient.Get(ctx, "pilots").Result()
-	if err != nil && !errors.Is(err, redis.Nil) {
-		return err
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			redisData = ""
+		} else {
+			return err
+		}
 	}
 
 	var (
@@ -36,8 +40,8 @@ func PilotFeed(
 		upsertModels    = make([]mongo.WriteModel, 0)
 	)
 
-	redisPilots := make([]string, 0)
-	if len(redisData) > 0 {
+	redisPilots := []string{}
+	if redisData != "" {
 		redisPilots = strings.Split(redisData, "|")
 	}
 
@@ -96,11 +100,9 @@ func PilotFeed(
 		}
 	}
 
-	if len(dataPilotsSlice) > 0 {
-		_, err = redisPipe.Exec(ctx)
-		if err != nil {
-			log.Printf("Error executing pilots pipeline: %v\n", err)
-		}
+	_, err = redisPipe.Exec(ctx)
+	if err != nil {
+		log.Printf("Error executing pilots pipeline: %v\n", err)
 	}
 
 	if len(upsertModels) > 0 {
@@ -118,6 +120,7 @@ func PilotFeed(
 		if pilot != "" && !ok {
 			toDelete = append(toDelete, pilot)
 			deletePipeline.Publish(ctx, "PILOT:DELETE", pilot)
+			deletePipeline.Del(ctx, "PILOT:"+pilot)
 		}
 	}
 

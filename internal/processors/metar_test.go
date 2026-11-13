@@ -8,6 +8,8 @@ import (
 	"github.com/vzauartcc/data-parser/internal/cache"
 )
 
+const testStationKMDW = "KMDW"
+
 func TestMetarFeed_CustomMock(t *testing.T) {
 	ctx := context.Background()
 
@@ -22,12 +24,12 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 			input: []metartafparser.Metar{
 				{Station: "KORD", Message: "KORD 121530Z"},
 				{Station: "BAD", Message: "BAD"},
-				{Station: "KMDW", Message: "KMDW 121600Z"},
+				{Station: testStationKMDW, Message: testStationKMDW + " 121600Z"},
 			},
 			expectedCmds: []string{
 				"SET:METAR:KORD",
 				"SET:METAR:BAD",
-				"SET:METAR:KMDW",
+				"SET:METAR:" + testStationKMDW,
 			},
 			expectedLength: 3,
 		},
@@ -77,13 +79,63 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 	}
 }
 
+func TestMetarFeed_StationCodeLength(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          []metartafparser.Metar
+		expectedLength int
+	}{
+		{
+			name:           "3-char station code should be processed",
+			input:          []metartafparser.Metar{{Station: "PHI", Message: "PHI 121530Z"}},
+			expectedLength: 1,
+		},
+		{
+			name:           "4-char station code",
+			input:          []metartafparser.Metar{{Station: testStationKMDW, Message: testStationKMDW + " 121600Z"}},
+			expectedLength: 1,
+		},
+		{
+			name:           "too-short station code should be skipped",
+			input:          []metartafparser.Metar{{Station: "AB", Message: "AB"}},
+			expectedLength: 0,
+		},
+		{
+			name:           "numeric station code should be skipped",
+			input:          []metartafparser.Metar{{Station: "123", Message: "123"}},
+			expectedLength: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockPipe := &cache.MockPipeline{
+				Published: make(map[string]string),
+			}
+			mockRedis := &cache.MockRedis{
+				Pipe: mockPipe,
+				Data: make(map[string]string),
+			}
+
+			err := MetarFeed(context.Background(), tt.input, mockRedis)
+			if err != nil {
+				t.Fatalf("MetarFeed failed: %v", err)
+			}
+
+			if mockPipe.Len() != tt.expectedLength {
+				t.Errorf("Expected %d commands, got %d", tt.expectedLength, mockPipe.Len())
+			}
+		})
+	}
+}
+
 func TestExtendMetarTTL(t *testing.T) {
 	ctx := context.Background()
 
 	mockData := map[string]string{
-		"METAR:KORD": "data1",
-		"METAR:KMDW": "data2",
-		"OTHER:KEY":  "data3",
+		"METAR:KORD":               "data1",
+		"METAR:" + testStationKMDW: "data2",
+		"OTHER:KEY":                "data3",
 	}
 
 	mockPipe := &cache.MockPipeline{

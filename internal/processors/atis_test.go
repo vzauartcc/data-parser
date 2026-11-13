@@ -8,10 +8,15 @@ import (
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 )
 
+const (
+	testAirportKMDW      = "KMDW"
+	testAirportThreeChar = "05C"
+)
+
 func TestAtisFeed(t *testing.T) {
 	mockPipe := &cache.MockPipeline{
 		Published:    make(map[string]string),
-		DiffResponse: []string{"KMDW"},
+		DiffResponse: []string{testAirportKMDW},
 	}
 	client := &cache.MockRedis{Pipe: mockPipe}
 
@@ -31,12 +36,61 @@ func TestAtisFeed(t *testing.T) {
 	foundDelete := false
 
 	for _, k := range mockPipe.ExpiredKeys {
-		if k == "ATIS:KMDW" {
+		if k == "ATIS:"+testAirportKMDW {
 			foundDelete = true
 		}
 	}
 
 	if !foundDelete {
 		t.Error("expected KMDW to be expired/cleaned up")
+	}
+}
+
+func TestAtisFeed_ExpiredAirports(t *testing.T) {
+	ctx := context.Background()
+
+	mockPipe := &cache.MockPipeline{
+		Published:    make(map[string]string),
+		DiffResponse: []string{testAirportKMDW},
+	}
+	client := &cache.MockRedis{Pipe: mockPipe}
+
+	data := []datafeed.VatsimATIS{
+		{Callsign: "KORD_ATIS", ATISCode: "A"},
+	}
+
+	err := AtisFeed(ctx, data, client)
+	if err != nil {
+		t.Fatalf("AtisFeed failed: %v", err)
+	}
+
+	foundDelete := false
+
+	for _, k := range mockPipe.ExpiredKeys {
+		if k == "ATIS:"+testAirportKMDW {
+			foundDelete = true
+		}
+	}
+
+	if !foundDelete {
+		t.Error("Expected KMDW to be identified as expired")
+	}
+}
+
+func TestAtisFeed_ThreeCharAirport(t *testing.T) {
+	mockPipe := &cache.MockPipeline{Published: make(map[string]string)}
+	client := &cache.MockRedis{Pipe: mockPipe}
+
+	data := []datafeed.VatsimATIS{
+		{Callsign: testAirportThreeChar + "_ATIS", ATISCode: "A"},
+	}
+
+	err := AtisFeed(context.Background(), data, client)
+	if err != nil {
+		t.Fatalf("AtisFeed failed: %v", err)
+	}
+
+	if mockPipe.Published["ATIS:"+testAirportThreeChar] != "A" {
+		t.Errorf("Expected ATIS:%s to be published, got %v", testAirportThreeChar, mockPipe.Published)
 	}
 }

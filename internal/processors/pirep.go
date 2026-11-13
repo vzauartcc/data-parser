@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,10 +23,7 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 	expired := time.Now().Add(-2 * time.Hour)
 
 	_, err := mongoDB.Collection("pireps").DeleteMany(ctx, bson.M{
-		"$or": bson.A{
-			bson.M{"manual": false},
-			bson.M{"reportTime": bson.M{"$lte": expired}},
-		},
+		"reportTime": bson.M{"$lte": expired},
 	})
 	if err != nil {
 		log.Printf("Error cleaning up pirep collection: %v\n", err)
@@ -34,7 +32,7 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 	upsertModels := make([]mongo.WriteModel, 0)
 
 	for _, pirep := range pireps {
-		if pirep.AircraftType == "" || pirep.RawObservation[:3] == "" ||
+		if pirep.AircraftType == "" || len(pirep.RawObservation) < 3 ||
 			pirep.ObservationTime == 0 ||
 			pirep.FlightLevel == 0 {
 			continue
@@ -47,15 +45,15 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 
 		windSpd := ""
 		if pirep.WindSpeed != nil {
-			windSpd = "@" + windSpd
+			windSpd = "@" + strconv.Itoa(*pirep.WindSpeed)
 		}
 
 		windDir := ""
 		if pirep.WindDirection != nil {
-			windDir = fmt.Sprintf("%d", pirep.WindDirection)
+			windDir = strconv.Itoa(*pirep.WindDirection)
 		}
 
-		wind := windDir + "" + windSpd
+		wind := windDir + windSpd
 
 		icing := ""
 		if pirep.IcingInterval1 != "" {
@@ -73,18 +71,18 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 		turb := ""
 
 		if pirep.Clouds != nil && len((*pirep.Clouds)) > 0 {
-			base := fmt.Sprintf("000%d", ((*pirep.Clouds)[0].Base)/100)
+			base := fmt.Sprintf("%03d", ((*pirep.Clouds)[0].Base)/100)
 
-			tops := "0000"
+			tops := "000"
 			if (*pirep.Clouds)[0].Tops != 0 {
-				tops = fmt.Sprintf("000%d", ((*pirep.Clouds)[0].Tops / 100))
+				tops = fmt.Sprintf("%03d", ((*pirep.Clouds)[0].Tops / 100))
 			}
 
 			skyCond = fmt.Sprintf(
 				"%s %s %s",
 				(*pirep.Clouds)[0].Cover,
-				base[len(base)-3:],
-				tops[len(tops)-3:],
+				base,
+				tops,
 			)
 
 			if pirep.TurbulenceInterval1 != "" {
@@ -102,9 +100,14 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 			turb = strings.TrimSpace(multiSpace.ReplaceAllString(turb, " "))
 		}
 
+		location := ""
+		if fields := strings.Fields(pirep.RawObservation); len(fields) > 0 {
+			location = fields[0]
+		}
+
 		upsertModels = append(upsertModels, mongo.NewInsertOneModel().SetDocument(bson.M{
 			"reportTime":  time.UnixMilli(int64(pirep.ObservationTime * 1000)),
-			"location":    pirep.RawObservation[:3],
+			"location":    location,
 			"aircraft":    pirep.AircraftType,
 			"flightLevel": pirep.FlightLevel,
 			"skyCond":     skyCond,

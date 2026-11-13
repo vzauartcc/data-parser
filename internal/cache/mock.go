@@ -84,8 +84,10 @@ func (m *MockPipeline) Close() error { return nil }
 func (m *MockPipeline) Discard() {}
 
 type MockRedis struct {
-	Pipe *MockPipeline
-	Data map[string]string
+	Pipe     *MockPipeline
+	Data     map[string]string
+	SetCalls map[string]string
+	DelCalls []string
 }
 
 func (m *MockRedis) Pipeline() redis.Pipeliner {
@@ -115,6 +117,12 @@ func (m *MockRedis) Expire(_ context.Context, _ string, _ time.Duration) *redis.
 }
 
 func (m *MockRedis) Del(_ context.Context, keys ...string) *redis.IntCmd {
+	if m.DelCalls == nil {
+		m.DelCalls = make([]string, 0)
+	}
+
+	m.DelCalls = append(m.DelCalls, keys...)
+
 	return redis.NewIntResult(int64(len(keys)), nil)
 }
 
@@ -145,7 +153,18 @@ func (m *MockRedis) Get(_ context.Context, key string) *redis.StringCmd {
 	return redis.NewStringResult(val, nil)
 }
 
-func (m *MockRedis) Set(_ context.Context, _ string, _ any, _ time.Duration) *redis.StatusCmd {
+func (m *MockRedis) Set(_ context.Context, key string, value any, _ time.Duration) *redis.StatusCmd {
+	if m.Data == nil {
+		m.Data = make(map[string]string)
+	}
+
+	if m.SetCalls == nil {
+		m.SetCalls = make(map[string]string)
+	}
+
+	m.Data[key] = fmt.Sprint(value)
+	m.SetCalls[key] = fmt.Sprint(value)
+
 	return redis.NewStatusResult("OK", nil)
 }
 

@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/ryansavara/go-metar-taf-parser v0.0.5
+	github.com/ryansavara/go-metar-taf-parser v0.0.8
 	go.mongodb.org/mongo-driver/v2 v2.9.1
 )
 
