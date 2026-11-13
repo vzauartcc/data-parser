@@ -2,6 +2,7 @@ package processors
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -110,5 +111,80 @@ func TestPirepModelDeserialization(t *testing.T) {
 
 	if p.Temperature == nil || *p.Temperature != "25" {
 		t.Errorf("Expected Temperature to be '25', got %v", p.Temperature)
+	}
+}
+
+func intPtr(i int) *int { return &i }
+
+func TestPirepWindSpeed(t *testing.T) {
+	pirepColl := &database.MockCollection{}
+
+	mockDB := &database.MockMongoDatabase{
+		Collections: map[string]*database.MockCollection{
+			"pireps": pirepColl,
+		},
+	}
+
+	ctx := context.Background()
+
+	windSpeed := 10
+	windDir := 270
+	pireps := []datafeed.Pirep{
+		{
+			// Valid PIREP with wind
+			AircraftType:    "B738",
+			RawObservation:  "KORD 123456Z",
+			ObservationTime: int(time.Now().Unix()),
+			FlightLevel:     340,
+			Longitude:       -87.9,
+			Latitude:        41.9,
+			WindSpeed:       intPtr(windSpeed),
+			WindDirection:   intPtr(windDir),
+			PirepType:       "PIREP",
+		},
+		{
+			// Valid PIREP without wind
+			AircraftType:    "C172",
+			RawObservation:  "KMDW 123456Z",
+			ObservationTime: int(time.Now().Unix()),
+			FlightLevel:     340,
+			Longitude:       -87.9,
+			Latitude:        41.9,
+			PirepType:       "PIREP",
+		},
+	}
+
+	err := PirepFeed(ctx, pireps, mockDB)
+	if err != nil {
+		t.Fatalf("PirepFeed returned an unexpected error: %v", err)
+	}
+
+	if len(pirepColl.BulkModels) != 2 {
+		t.Fatalf("Expected 2 PIREPs to be inserted, got %d", len(pirepColl.BulkModels))
+	}
+
+	// Check first pirep (with wind)
+	model1 := pirepColl.BulkModels[0]
+	insertModel1, ok := model1.(*mongo.InsertOneModel)
+	if !ok {
+		t.Errorf("Expected model type *mongo.InsertOneModel, got %T", model1)
+	} else {
+		doc1 := insertModel1.Document.(bson.M)
+		expectedWind := fmt.Sprintf("%d@%d", windDir, windSpeed)
+		if doc1["wind"] != expectedWind {
+			t.Errorf("Expected wind '%s', got %v", expectedWind, doc1["wind"])
+		}
+	}
+
+	// Check second pirep (without wind)
+	model2 := pirepColl.BulkModels[1]
+	insertModel2, ok := model2.(*mongo.InsertOneModel)
+	if !ok {
+		t.Errorf("Expected model type *mongo.InsertOneModel, got %T", model2)
+	} else {
+		doc2 := insertModel2.Document.(bson.M)
+		if doc2["wind"] != "" {
+			t.Errorf("Expected empty wind, got %v", doc2["wind"])
+		}
 	}
 }

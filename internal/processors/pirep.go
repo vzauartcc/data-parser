@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -47,15 +48,15 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 
 		windSpd := ""
 		if pirep.WindSpeed != nil {
-			windSpd = "@" + windSpd
+			windSpd = "@" + strconv.Itoa(*pirep.WindSpeed)
 		}
 
 		windDir := ""
 		if pirep.WindDirection != nil {
-			windDir = fmt.Sprintf("%d", pirep.WindDirection)
+			windDir = fmt.Sprintf("%d", *pirep.WindDirection)
 		}
 
-		wind := windDir + "" + windSpd
+		wind := windDir + windSpd
 
 		icing := ""
 		if pirep.IcingInterval1 != "" {
