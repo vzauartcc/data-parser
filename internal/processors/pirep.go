@@ -71,18 +71,18 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 		turb := ""
 
 		if pirep.Clouds != nil && len((*pirep.Clouds)) > 0 {
-			base := fmt.Sprintf("000%d", ((*pirep.Clouds)[0].Base)/100)
+			base := fmt.Sprintf("%03d", ((*pirep.Clouds)[0].Base)/100)
 
-			tops := "0000"
+			tops := "000"
 			if (*pirep.Clouds)[0].Tops != 0 {
-				tops = fmt.Sprintf("000%d", ((*pirep.Clouds)[0].Tops / 100))
+				tops = fmt.Sprintf("%03d", ((*pirep.Clouds)[0].Tops / 100))
 			}
 
 			skyCond = fmt.Sprintf(
 				"%s %s %s",
 				(*pirep.Clouds)[0].Cover,
-				base[len(base)-3:],
-				tops[len(tops)-3:],
+				base,
+				tops,
 			)
 
 			if pirep.TurbulenceInterval1 != "" {
