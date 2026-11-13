@@ -11,6 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+const aircraftB738 = "B738"
+
 func TestPirepFeed(t *testing.T) {
 	pirepColl := &database.MockCollection{}
 
@@ -25,7 +27,7 @@ func TestPirepFeed(t *testing.T) {
 	pireps := []datafeed.Pirep{
 		{
 			// Valid PIREP
-			AircraftType:    "B738",
+			AircraftType:    aircraftB738,
 			RawObservation:  "KORD 123456Z",
 			ObservationTime: int(time.Now().Unix()),
 			FlightLevel:     340,
@@ -77,7 +79,7 @@ func TestPirepFeed(t *testing.T) {
 			t.Errorf("Expected model type *mongo.InsertOneModel, got %T", model)
 		} else {
 			doc := insertModel.Document.(bson.M)
-			if doc["aircraft"] != "B738" {
+			if doc["aircraft"] != aircraftB738 {
 				t.Errorf("Expected aircraft 'B738', got %v", doc["aircraft"])
 			}
 

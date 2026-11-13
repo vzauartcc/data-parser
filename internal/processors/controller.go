@@ -28,6 +28,12 @@ const (
 	expiration = 65 * time.Second
 	mainKey    = "controllers"
 	tempKey    = "controllers:temp"
+
+	fieldCID       = "cid"
+	fieldCallsign  = "callsign"
+	fieldTimeStart = "timeStart"
+	mongoIn        = "$in"
+	mongoSet       = "$set"
 )
 
 func ControllerFeed(
@@ -52,7 +58,7 @@ func ControllerFeed(
 
 	userMap := make(map[int]models.User)
 
-	cursor, _ := mongoDB.Collection("users").Find(ctx, bson.M{"cid": bson.M{"$in": cids}})
+	cursor, _ := mongoDB.Collection("users").Find(ctx, bson.M{fieldCID: bson.M{mongoIn: cids}})
 	if cursor != nil {
 		var users []models.User
 
@@ -74,18 +80,18 @@ func ControllerFeed(
 			}
 
 			if controller.IsActive {
-				toSave := bson.M{"$set": bson.M{
-					"cid":       controller.CID,
-					"name":      controllerName,
-					"rating":    datafeed.GetRating(controller.VatsimData.RequestedRating),
-					"pos":       controller.VatsimData.Callsign,
-					"timeStart": controller.LoginTime,
-					"atis":      controller.VatsimData.ControllerInfo,
-					"frequency": controller.VatsimData.PrimaryFrequency,
+				toSave := bson.M{mongoSet: bson.M{
+					fieldCID:       controller.CID,
+					"name":         controllerName,
+					"rating":       datafeed.GetRating(controller.VatsimData.RequestedRating),
+					"pos":          controller.VatsimData.Callsign,
+					fieldTimeStart: controller.LoginTime,
+					"atis":         controller.VatsimData.ControllerInfo,
+					"frequency":    controller.VatsimData.PrimaryFrequency,
 				}}
 
 				model := mongo.NewUpdateOneModel().
-					SetFilter(bson.M{"callsign": controller.VatsimData.Callsign}).
+					SetFilter(bson.M{fieldCallsign: controller.VatsimData.Callsign}).
 					SetUpdate(toSave).
 					SetUpsert(true)
 
@@ -152,7 +158,7 @@ func ControllerFeed(
 
 		_, _ = deletePipe.Exec(ctx)
 
-		_, err := coll.DeleteMany(ctx, bson.M{"callsign": bson.M{"$in": expiredControllers}})
+		_, err := coll.DeleteMany(ctx, bson.M{fieldCallsign: bson.M{mongoIn: expiredControllers}})
 		if err != nil {
 			log.Printf("Error deleting offline controllers: %v\n", err)
 		}
@@ -165,7 +171,7 @@ func ControllerFeed(
 		}
 	}
 
-	neighs := make([]string, 0)
+	neighs := make([]string, 0, len(dataNeighbors))
 	for key := range dataNeighbors {
 		neighs = append(neighs, key)
 	}
@@ -185,12 +191,12 @@ func logSession(ctx context.Context, controller datafeed.VnasUser, mongoDB datab
 
 	err := mongoDB.Collection("controllerHours").
 		FindOne(ctx, bson.M{
-			"cid": controller.CID,
-			"timeStart": bson.M{
+			fieldCID: controller.CID,
+			fieldTimeStart: bson.M{
 				"$gte": controller.LoginTime,
 				"$lt":  time.Now(),
 			},
-		}, options.FindOne().SetSort(bson.M{"timeStart": -1})).
+		}, options.FindOne().SetSort(bson.M{fieldTimeStart: -1})).
 		Decode(&session)
 	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 		log.Printf("Failed to decode session for %d: %v\n", controller.CID, err)
@@ -207,8 +213,8 @@ func logSession(ctx context.Context, controller datafeed.VnasUser, mongoDB datab
 
 			return mongo.NewInsertOneModel().
 				SetDocument(bson.M{
-					"cid":          controller.CID,
-					"timeStart":    startTime,
+					fieldCID:       controller.CID,
+					fieldTimeStart: startTime,
 					"timeEnd":      time.Now(),
 					"position":     controller.VatsimData.Callsign,
 					"isStudent":    controller.Role == "Student",
@@ -225,9 +231,9 @@ func logSession(ctx context.Context, controller datafeed.VnasUser, mongoDB datab
 			session.WentInactive = true
 		}
 
-		return mongo.NewUpdateOneModel().SetFilter(bson.M{"_id": session.ID}).SetUpdate(bson.M{"$set": bson.M{
+		return mongo.NewUpdateOneModel().SetFilter(bson.M{"_id": session.ID}).SetUpdate(bson.M{mongoSet: bson.M{
 			"timeEnd":      session.TimeEnd,
-			"timeStart":    session.TimeStart,
+			fieldTimeStart: session.TimeStart,
 			"wentInactive": session.WentInactive,
 		}}).SetUpsert(true)
 	}

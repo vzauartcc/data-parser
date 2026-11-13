@@ -53,10 +53,10 @@ func PilotFeed(
 			config.IsPointInAirspace(pilot.Latitude, pilot.Longitude) {
 			plannedCruise := formatCruiseAltitude(pilot.FlightPlan.RequestedAltitude)
 
-			toSave := bson.M{"$set": bson.M{
-				"cid":           pilot.CID,
+			toSave := bson.M{mongoSet: bson.M{
+				fieldCID:        pilot.CID,
 				"name":          pilot.Name,
-				"callsign":      pilot.Callsign,
+				fieldCallsign:   pilot.Callsign,
 				"aircraft":      pilot.FlightPlan.AircraftFAA,
 				"dep":           pilot.FlightPlan.Departure,
 				"dest":          pilot.FlightPlan.Arrival,
@@ -73,7 +73,7 @@ func PilotFeed(
 
 			upsertModels = append(
 				upsertModels,
-				mongo.NewUpdateOneModel().SetFilter(bson.M{"callsign": pilot.Callsign}).SetUpdate(toSave).SetUpsert(true),
+				mongo.NewUpdateOneModel().SetFilter(bson.M{fieldCallsign: pilot.Callsign}).SetUpdate(toSave).SetUpsert(true),
 			)
 
 			dataPilotsMap[pilot.Callsign] = struct{}{}
@@ -82,7 +82,7 @@ func PilotFeed(
 			key := "PILOT:" + pilot.Callsign
 
 			redisPipe.HSet(ctx, key,
-				"callsign", pilot.Callsign,
+				fieldCallsign, pilot.Callsign,
 				"lat", pilot.Latitude,
 				"lng", pilot.Longitude,
 				"speed", pilot.Groundspeed,
@@ -122,7 +122,7 @@ func PilotFeed(
 	}
 
 	if len(toDelete) > 0 {
-		_, err = coll.DeleteMany(ctx, bson.M{"callsign": bson.M{"$in": toDelete}})
+		_, err = coll.DeleteMany(ctx, bson.M{fieldCallsign: bson.M{mongoIn: toDelete}})
 		if err != nil {
 			log.Printf("Error deleting offline pilots: %v\n", err)
 		}

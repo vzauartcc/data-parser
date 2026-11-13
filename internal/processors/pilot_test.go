@@ -30,7 +30,7 @@ func TestPilotFeed_Full(t *testing.T) {
 			CID: 1234567, Callsign: "AAL100", Latitude: 30.0, Longitude: -80.0,
 			FlightPlan: &datafeed.VatsimFlightPlan{
 				Departure: "KORD", Arrival: "KLAX",
-				AircraftFAA: "B738", RequestedAltitude: "34000",
+				AircraftFAA: aircraftB738, RequestedAltitude: "34000",
 			},
 		},
 	}
