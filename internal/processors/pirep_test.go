@@ -7,6 +7,7 @@ import (
 
 	"github.com/vzauartcc/data-parser/internal/database"
 	"github.com/vzauartcc/data-parser/internal/datafeed"
+	"github.com/vzauartcc/data-parser/internal/models"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
@@ -77,7 +78,7 @@ func TestPirepFeed(t *testing.T) {
 
 		if !ok {
 			t.Errorf("Expected model type *mongo.InsertOneModel, got %T", model)
-		} else {
+} else {
 			doc := insertModel.Document.(bson.M)
 			if doc["aircraft"] != aircraftB738 {
 				t.Errorf("Expected aircraft 'B738', got %v", doc["aircraft"])
@@ -87,5 +88,27 @@ func TestPirepFeed(t *testing.T) {
 				t.Error("Expected manual flag to be false")
 			}
 		}
+	}
+}
+
+func TestPirepModelDeserialization(t *testing.T) {
+	doc := bson.M{"reportTime": time.Now(), "location": "KORD", "aircraft": "B738",
+		"flightLevel": "340", "skyCond": "CLR", "turbulence": "MODERATE",
+		"icing": "LI", "vis": "10", "temp": "25", "wind": "27010", "urgent": false,
+		"raw": "KORD 123456Z", "manual": false}
+
+	data, err := bson.Marshal(doc)
+	if err != nil {
+		t.Fatalf("Failed to marshal doc: %v", err)
+	}
+
+	var p models.Pirep
+	err = bson.Unmarshal(data, &p)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if p.Temperature == nil || *p.Temperature != "25" {
+		t.Errorf("Expected Temperature to be '25', got %v", p.Temperature)
 	}
 }

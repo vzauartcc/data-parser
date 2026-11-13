@@ -16,7 +16,7 @@ type Pirep struct {
 	Turbulence    *string       `bson:"turbulence"`
 	Icing         *string       `bson:"icing"`
 	Visibility    *string       `bson:"vis"`
-	Temperatrue   *string       `bson:"temp"`
+	Temperature   *string       `bson:"temp"`
 	Wind          *string       `bson:"wind"`
 	Urgent        bool          `bson:"urgent"`
 	Raw           string        `bson:"raw"`
