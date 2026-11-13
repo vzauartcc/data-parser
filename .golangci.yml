@@ -12,6 +12,7 @@ linters:
     - gochecknoglobals
     - gocognit # check once in a while
     - godox
+    - gomodguard # replaced by gomodguard_v2
     - ireturn
     - mnd
     - paralleltest # duplicate of tparallel
