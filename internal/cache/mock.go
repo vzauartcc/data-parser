@@ -145,7 +145,11 @@ func (m *MockRedis) Get(_ context.Context, key string) *redis.StringCmd {
 	return redis.NewStringResult(val, nil)
 }
 
-func (m *MockRedis) Set(_ context.Context, _ string, _ any, _ time.Duration) *redis.StatusCmd {
+func (m *MockRedis) Set(ctx context.Context, key string, value any, _ time.Duration) *redis.StatusCmd {
+	if m.Data == nil {
+		m.Data = make(map[string]string)
+	}
+	m.Data[key] = fmt.Sprint(value)
 	return redis.NewStatusResult("OK", nil)
 }
 
