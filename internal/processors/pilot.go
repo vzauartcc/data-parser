@@ -100,11 +100,9 @@ func PilotFeed(
 		}
 	}
 
-	if len(dataPilotsSlice) > 0 {
-		_, err = redisPipe.Exec(ctx)
-		if err != nil {
-			log.Printf("Error executing pilots pipeline: %v\n", err)
-		}
+	_, err = redisPipe.Exec(ctx)
+	if err != nil {
+		log.Printf("Error executing pilots pipeline: %v\n", err)
 	}
 
 	if len(upsertModels) > 0 {
