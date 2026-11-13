@@ -73,16 +73,20 @@ func TestPirepFeed(t *testing.T) {
 		t.Errorf("Expected %d PIREPs to be queued for BulkWrite, but found %d", expectedInserts, actualInserts)
 	}
 
-	if actualInserts > 0 {
+if actualInserts > 0 {
 		model := pirepColl.BulkModels[0]
 		insertModel, ok := model.(*mongo.InsertOneModel)
 
 		if !ok {
 			t.Errorf("Expected model type *mongo.InsertOneModel, got %T", model)
-} else {
+		} else {
 			doc := insertModel.Document.(bson.M)
 			if doc["aircraft"] != aircraftB738 {
 				t.Errorf("Expected aircraft 'B738', got %v", doc["aircraft"])
+			}
+
+			if doc["location"] != "KORD" {
+				t.Errorf("Expected location 'KORD', got %v", doc["location"])
 			}
 
 			if doc["manual"] != false {

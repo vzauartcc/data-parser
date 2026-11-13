@@ -103,9 +103,14 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 			turb = strings.TrimSpace(multiSpace.ReplaceAllString(turb, " "))
 		}
 
+		location := ""
+		if fields := strings.Fields(pirep.RawObservation); len(fields) > 0 {
+			location = fields[0]
+		}
+
 		upsertModels = append(upsertModels, mongo.NewInsertOneModel().SetDocument(bson.M{
 			"reportTime":  time.UnixMilli(int64(pirep.ObservationTime * 1000)),
-			"location":    pirep.RawObservation[:3],
+			"location":    location,
 			"aircraft":    pirep.AircraftType,
 			"flightLevel": pirep.FlightLevel,
 			"skyCond":     skyCond,
