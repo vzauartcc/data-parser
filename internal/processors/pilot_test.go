@@ -68,3 +68,30 @@ func TestPilotFeed_Full(t *testing.T) {
 		t.Error("Missing Redis Publish for deleted pilot DAL200")
 	}
 }
+
+func TestPilotFeed_MissingRedisKey(t *testing.T) {
+	ctx := context.Background()
+
+	redisMock := &cache.MockRedis{
+		Pipe: &cache.MockPipeline{Published: make(map[string]string)},
+		Data: make(map[string]string),
+	}
+
+	pilotColl := &database.MockCollection{}
+	mongoMock := &database.MockMongoDatabase{
+		Collections: map[string]*database.MockCollection{
+			"pilotsOnline": pilotColl,
+		},
+	}
+
+	pilots := []datafeed.VatsimPilot{}
+
+	err := PilotFeed(ctx, pilots, mongoMock, redisMock)
+	if err != nil {
+		t.Fatalf("PilotFeed failed with missing Redis key: %v", err)
+	}
+
+	if pilotColl.DeletedFilter != nil {
+		t.Error("Expected no pilots to be deleted when Redis key is missing")
+	}
+}

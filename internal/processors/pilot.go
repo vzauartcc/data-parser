@@ -24,8 +24,12 @@ func PilotFeed(
 	redisClient cache.RedisClient,
 ) error {
 	redisData, err := redisClient.Get(ctx, "pilots").Result()
-	if err != nil && !errors.Is(err, redis.Nil) {
-		return err
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			redisData = ""
+		} else {
+			return err
+		}
 	}
 
 	var (
@@ -36,8 +40,8 @@ func PilotFeed(
 		upsertModels    = make([]mongo.WriteModel, 0)
 	)
 
-	redisPilots := make([]string, 0)
-	if len(redisData) > 0 {
+	redisPilots := []string{}
+	if redisData != "" {
 		redisPilots = strings.Split(redisData, "|")
 	}
 
