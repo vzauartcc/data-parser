@@ -152,7 +152,6 @@ func ControllerFeed(
 		deletePipe := redisClient.Pipeline()
 
 		for _, controller := range expiredControllers {
-			deletePipe.LPush(ctx, "1231231231231231231231", controller)
 			deletePipe.Publish(ctx, "CONTROLLER:DELETE", controller)
 			deletePipe.Del(ctx, "CONTROLLER:"+controller)
 		}
