@@ -53,7 +53,7 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 
 		windDir := ""
 		if pirep.WindDirection != nil {
-			windDir = fmt.Sprintf("%d", *pirep.WindDirection)
+			windDir = strconv.Itoa(*pirep.WindDirection)
 		}
 
 		wind := windDir + windSpd

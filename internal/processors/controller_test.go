@@ -12,6 +12,8 @@ import (
 	"github.com/vzauartcc/data-parser/internal/models"
 )
 
+const testCallsignZOBApp = "ZOB_APP"
+
 func TestControllerFeed(t *testing.T) {
 	ctx := context.Background()
 
@@ -95,7 +97,7 @@ func TestControllerFeed_Neighbors(t *testing.T) {
 				CID:          1234567,
 				TimeStart:    time.Now().Add(-2 * time.Hour),
 				TimeEnd:      time.Now(),
-				Position:     "ZOB_APP",
+				Position:     testCallsignZOBApp,
 				IsStudent:    false,
 				IsInstructor: false,
 				WentInactive: false,
@@ -113,7 +115,7 @@ func TestControllerFeed_Neighbors(t *testing.T) {
 
 	mockPipe := &cache.MockPipeline{
 		Published:    make(map[string]string),
-		DiffResponse: []string{"ZOB_APP"},
+		DiffResponse: []string{testCallsignZOBApp},
 	}
 	redisMock := &cache.MockRedis{
 		Pipe: mockPipe,
@@ -127,7 +129,7 @@ func TestControllerFeed_Neighbors(t *testing.T) {
 				ArtccID:  "ZOB",
 				IsActive: true,
 				VatsimData: datafeed.VnasVatsimData{
-					Callsign: "ZOB_APP",
+					Callsign: testCallsignZOBApp,
 				},
 			},
 		},

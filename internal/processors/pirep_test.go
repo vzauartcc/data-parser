@@ -13,14 +13,21 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-const aircraftB738 = "B738"
+const (
+	aircraftB738       = "B738"
+	collectionPireps   = "pireps"
+	rawObservationKORD = "KORD 123456Z"
+	pirepTypePIREP     = "PIREP"
+	locationKORD       = "KORD"
+	rawObservationAB   = "AB"
+)
 
 func TestPirepFeed(t *testing.T) {
 	pirepColl := &database.MockCollection{}
 
 	mockDB := &database.MockMongoDatabase{
 		Collections: map[string]*database.MockCollection{
-			"pireps": pirepColl,
+			collectionPireps: pirepColl,
 		},
 	}
 
@@ -30,12 +37,12 @@ func TestPirepFeed(t *testing.T) {
 		{
 			// Valid PIREP
 			AircraftType:    aircraftB738,
-			RawObservation:  "KORD 123456Z",
+			RawObservation:  rawObservationKORD,
 			ObservationTime: int(time.Now().Unix()),
 			FlightLevel:     340,
 			Longitude:       -87.9,
 			Latitude:        41.9,
-			PirepType:       "PIREP",
+			PirepType:       pirepTypePIREP,
 		},
 		{
 			// Invalid PIREP: Missing FlightLevel (should be skipped)
@@ -45,7 +52,7 @@ func TestPirepFeed(t *testing.T) {
 			FlightLevel:     0,
 			Longitude:       -122.3,
 			Latitude:        37.6,
-			PirepType:       "PIREP",
+			PirepType:       pirepTypePIREP,
 		},
 		{
 			// Invalid PIREP: Not a PIREP or Urgent PIREP type (should be skipped)
@@ -73,7 +80,7 @@ func TestPirepFeed(t *testing.T) {
 		t.Errorf("Expected %d PIREPs to be queued for BulkWrite, but found %d", expectedInserts, actualInserts)
 	}
 
-if actualInserts > 0 {
+	if actualInserts > 0 {
 		model := pirepColl.BulkModels[0]
 		insertModel, ok := model.(*mongo.InsertOneModel)
 
@@ -85,7 +92,7 @@ if actualInserts > 0 {
 				t.Errorf("Expected aircraft 'B738', got %v", doc["aircraft"])
 			}
 
-			if doc["location"] != "KORD" {
+			if doc["location"] != locationKORD {
 				t.Errorf("Expected location 'KORD', got %v", doc["location"])
 			}
 
@@ -101,28 +108,29 @@ func TestPirepModelDeserialization(t *testing.T) {
 	visibility := 10
 	temp := 25
 
-	doc := bson.M{"reportTime": time.Now(), "location": "KORD", "aircraft": "B738",
+	doc := bson.M{"reportTime": time.Now(), "location": locationKORD, "aircraft": aircraftB738,
 		"flightLevel": flightLevel, "skyCond": "CLR", "turbulence": "MODERATE",
 		"icing": "LI", "vis": &visibility, "temp": &temp, "wind": "27010", "urgent": false,
-		"raw": "KORD 123456Z", "manual": false}
+		"raw": rawObservationKORD, "manual": false}
 
 	data, err := bson.Marshal(doc)
 	if err != nil {
 		t.Fatalf("Failed to marshal doc: %v", err)
 	}
 
-	var p models.Pirep
-	err = bson.Unmarshal(data, &p)
+	var pirepModel models.Pirep
+
+	err = bson.Unmarshal(data, &pirepModel)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 
-	if p.Temperature == nil || *p.Temperature != temp {
-		t.Errorf("Expected Temperature to be %d, got %v", temp, p.Temperature)
+	if pirepModel.Temperature == nil || *pirepModel.Temperature != temp {
+		t.Errorf("Expected Temperature to be %d, got %v", temp, pirepModel.Temperature)
 	}
 
-	if p.FlightLevel != flightLevel {
-		t.Errorf("Expected FlightLevel to be %d, got %d", flightLevel, p.FlightLevel)
+	if pirepModel.FlightLevel != flightLevel {
+		t.Errorf("Expected FlightLevel to be %d, got %d", flightLevel, pirepModel.FlightLevel)
 	}
 }
 
@@ -133,8 +141,8 @@ func TestPirepModelRoundTrip(t *testing.T) {
 
 	raw, err := bson.Marshal(bson.M{
 		"reportTime":  time.Now(),
-		"location":    "KORD",
-		"aircraft":    "B738",
+		"location":    locationKORD,
+		"aircraft":    aircraftB738,
 		"flightLevel": flightLevel,
 		"skyCond":     "CLR",
 		"turbulence":  "",
@@ -143,7 +151,7 @@ func TestPirepModelRoundTrip(t *testing.T) {
 		"temp":        &temp,
 		"wind":        "27010",
 		"urgent":      false,
-		"raw":         "KORD 123456Z",
+		"raw":         rawObservationKORD,
 		"manual":      false,
 	})
 	if err != nil {
@@ -151,7 +159,9 @@ func TestPirepModelRoundTrip(t *testing.T) {
 	}
 
 	var pirep models.Pirep
-	if err := bson.Unmarshal(raw, &pirep); err != nil {
+
+	err = bson.Unmarshal(raw, &pirep)
+	if err != nil {
 		t.Fatalf("unmarshal into models.Pirep: %v", err)
 	}
 
@@ -171,7 +181,7 @@ func TestPirepWindSpeed(t *testing.T) {
 
 	mockDB := &database.MockMongoDatabase{
 		Collections: map[string]*database.MockCollection{
-			"pireps": pirepColl,
+			collectionPireps: pirepColl,
 		},
 	}
 
@@ -182,15 +192,15 @@ func TestPirepWindSpeed(t *testing.T) {
 	pireps := []datafeed.Pirep{
 		{
 			// Valid PIREP with wind
-			AircraftType:    "B738",
-			RawObservation:  "KORD 123456Z",
+			AircraftType:    aircraftB738,
+			RawObservation:  rawObservationKORD,
 			ObservationTime: int(time.Now().Unix()),
 			FlightLevel:     340,
 			Longitude:       -87.9,
 			Latitude:        41.9,
 			WindSpeed:       intPtr(windSpeed),
 			WindDirection:   intPtr(windDir),
-			PirepType:       "PIREP",
+			PirepType:       pirepTypePIREP,
 		},
 		{
 			// Valid PIREP without wind
@@ -200,7 +210,7 @@ func TestPirepWindSpeed(t *testing.T) {
 			FlightLevel:     340,
 			Longitude:       -87.9,
 			Latitude:        41.9,
-			PirepType:       "PIREP",
+			PirepType:       pirepTypePIREP,
 		},
 	}
 
@@ -215,11 +225,13 @@ func TestPirepWindSpeed(t *testing.T) {
 
 	// Check first pirep (with wind)
 	model1 := pirepColl.BulkModels[0]
-	insertModel1, ok := model1.(*mongo.InsertOneModel)
-	if !ok {
+
+	insertModel1, insertOK := model1.(*mongo.InsertOneModel)
+	if !insertOK {
 		t.Errorf("Expected model type *mongo.InsertOneModel, got %T", model1)
 	} else {
 		doc1 := insertModel1.Document.(bson.M)
+
 		expectedWind := fmt.Sprintf("%d@%d", windDir, windSpeed)
 		if doc1["wind"] != expectedWind {
 			t.Errorf("Expected wind '%s', got %v", expectedWind, doc1["wind"])
@@ -228,8 +240,9 @@ func TestPirepWindSpeed(t *testing.T) {
 
 	// Check second pirep (without wind)
 	model2 := pirepColl.BulkModels[1]
-	insertModel2, ok := model2.(*mongo.InsertOneModel)
-	if !ok {
+
+	insertModel2, insertOK2 := model2.(*mongo.InsertOneModel)
+	if !insertOK2 {
 		t.Errorf("Expected model type *mongo.InsertOneModel, got %T", model2)
 	} else {
 		doc2 := insertModel2.Document.(bson.M)
@@ -242,13 +255,13 @@ func TestPirepWindSpeed(t *testing.T) {
 func TestPirepFeed_ShortRawObservation(t *testing.T) {
 	pirepColl := &database.MockCollection{}
 	mockDB := &database.MockMongoDatabase{
-		Collections: map[string]*database.MockCollection{"pireps": pirepColl},
+		Collections: map[string]*database.MockCollection{collectionPireps: pirepColl},
 	}
 
 	pireps := []datafeed.Pirep{
 		{
-			AircraftType:    "B738",
-			RawObservation:  "AB",
+			AircraftType:    aircraftB738,
+			RawObservation:  rawObservationAB,
 			ObservationTime: int(time.Now().Unix()),
 			FlightLevel:     340,
 			Longitude:       -87.9,
@@ -257,7 +270,8 @@ func TestPirepFeed_ShortRawObservation(t *testing.T) {
 		},
 	}
 
-	if err := PirepFeed(context.Background(), pireps, mockDB); err != nil {
+	err := PirepFeed(context.Background(), pireps, mockDB)
+	if err != nil {
 		t.Fatalf("PirepFeed returned an unexpected error: %v", err)
 	}
 

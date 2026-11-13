@@ -8,6 +8,8 @@ import (
 	"github.com/vzauartcc/data-parser/internal/cache"
 )
 
+const testStationKMDW = "KMDW"
+
 func TestMetarFeed_CustomMock(t *testing.T) {
 	ctx := context.Background()
 
@@ -22,12 +24,12 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 			input: []metartafparser.Metar{
 				{Station: "KORD", Message: "KORD 121530Z"},
 				{Station: "BAD", Message: "BAD"},
-				{Station: "KMDW", Message: "KMDW 121600Z"},
+				{Station: testStationKMDW, Message: testStationKMDW + " 121600Z"},
 			},
 			expectedCmds: []string{
 				"SET:METAR:KORD",
 				"SET:METAR:BAD",
-				"SET:METAR:KMDW",
+				"SET:METAR:" + testStationKMDW,
 			},
 			expectedLength: 3,
 		},
@@ -90,7 +92,7 @@ func TestMetarFeed_StationCodeLength(t *testing.T) {
 		},
 		{
 			name:           "4-char station code",
-			input:          []metartafparser.Metar{{Station: "KMDW", Message: "KMDW 121600Z"}},
+			input:          []metartafparser.Metar{{Station: testStationKMDW, Message: testStationKMDW + " 121600Z"}},
 			expectedLength: 1,
 		},
 		{
@@ -131,9 +133,9 @@ func TestExtendMetarTTL(t *testing.T) {
 	ctx := context.Background()
 
 	mockData := map[string]string{
-		"METAR:KORD": "data1",
-		"METAR:KMDW": "data2",
-		"OTHER:KEY":  "data3",
+		"METAR:KORD":               "data1",
+		"METAR:" + testStationKMDW: "data2",
+		"OTHER:KEY":                "data3",
 	}
 
 	mockPipe := &cache.MockPipeline{

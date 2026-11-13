@@ -8,10 +8,12 @@ import (
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 )
 
+const testAirportKMDW = "KMDW"
+
 func TestAtisFeed(t *testing.T) {
 	mockPipe := &cache.MockPipeline{
 		Published:    make(map[string]string),
-		DiffResponse: []string{"KMDW"},
+		DiffResponse: []string{testAirportKMDW},
 	}
 	client := &cache.MockRedis{Pipe: mockPipe}
 
@@ -31,7 +33,7 @@ func TestAtisFeed(t *testing.T) {
 	foundDelete := false
 
 	for _, k := range mockPipe.ExpiredKeys {
-		if k == "ATIS:KMDW" {
+		if k == "ATIS:"+testAirportKMDW {
 			foundDelete = true
 		}
 	}
@@ -46,7 +48,7 @@ func TestAtisFeed_ExpiredAirports(t *testing.T) {
 
 	mockPipe := &cache.MockPipeline{
 		Published:    make(map[string]string),
-		DiffResponse: []string{"KMDW"},
+		DiffResponse: []string{testAirportKMDW},
 	}
 	client := &cache.MockRedis{Pipe: mockPipe}
 
@@ -60,8 +62,9 @@ func TestAtisFeed_ExpiredAirports(t *testing.T) {
 	}
 
 	foundDelete := false
+
 	for _, k := range mockPipe.ExpiredKeys {
-		if k == "ATIS:KMDW" {
+		if k == "ATIS:"+testAirportKMDW {
 			foundDelete = true
 		}
 	}
