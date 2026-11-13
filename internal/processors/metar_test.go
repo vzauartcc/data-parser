@@ -77,6 +77,56 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 	}
 }
 
+func TestMetarFeed_StationCodeLength(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          []metartafparser.Metar
+		expectedLength int
+	}{
+		{
+			name:           "3-char station code should be processed",
+			input:          []metartafparser.Metar{{Station: "PHI", Message: "PHI 121530Z"}},
+			expectedLength: 1,
+		},
+		{
+			name:           "4-char station code",
+			input:          []metartafparser.Metar{{Station: "KMDW", Message: "KMDW 121600Z"}},
+			expectedLength: 1,
+		},
+		{
+			name:           "too-short station code should be skipped",
+			input:          []metartafparser.Metar{{Station: "AB", Message: "AB"}},
+			expectedLength: 0,
+		},
+		{
+			name:           "numeric station code should be skipped",
+			input:          []metartafparser.Metar{{Station: "123", Message: "123"}},
+			expectedLength: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockPipe := &cache.MockPipeline{
+				Published: make(map[string]string),
+			}
+			mockRedis := &cache.MockRedis{
+				Pipe: mockPipe,
+				Data: make(map[string]string),
+			}
+
+			err := MetarFeed(context.Background(), tt.input, mockRedis)
+			if err != nil {
+				t.Fatalf("MetarFeed failed: %v", err)
+			}
+
+			if mockPipe.Len() != tt.expectedLength {
+				t.Errorf("Expected %d commands, got %d", tt.expectedLength, mockPipe.Len())
+			}
+		})
+	}
+}
+
 func TestExtendMetarTTL(t *testing.T) {
 	ctx := context.Background()
 
