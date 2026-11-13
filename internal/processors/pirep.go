@@ -35,7 +35,7 @@ func PirepFeed(ctx context.Context, pireps []datafeed.Pirep, mongoDB database.Mo
 	upsertModels := make([]mongo.WriteModel, 0)
 
 	for _, pirep := range pireps {
-		if pirep.AircraftType == "" || pirep.RawObservation[:3] == "" ||
+		if pirep.AircraftType == "" || len(pirep.RawObservation) < 3 ||
 			pirep.ObservationTime == 0 ||
 			pirep.FlightLevel == 0 {
 			continue

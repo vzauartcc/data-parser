@@ -188,3 +188,30 @@ func TestPirepWindSpeed(t *testing.T) {
 		}
 	}
 }
+
+func TestPirepFeed_ShortRawObservation(t *testing.T) {
+	pirepColl := &database.MockCollection{}
+	mockDB := &database.MockMongoDatabase{
+		Collections: map[string]*database.MockCollection{"pireps": pirepColl},
+	}
+
+	pireps := []datafeed.Pirep{
+		{
+			AircraftType:    "B738",
+			RawObservation:  "AB",
+			ObservationTime: int(time.Now().Unix()),
+			FlightLevel:     340,
+			Longitude:       -87.9,
+			Latitude:        41.9,
+			PirepType:       "PIREP",
+		},
+	}
+
+	if err := PirepFeed(context.Background(), pireps, mockDB); err != nil {
+		t.Fatalf("PirepFeed returned an unexpected error: %v", err)
+	}
+
+	if len(pirepColl.BulkModels) != 0 {
+		t.Errorf("Expected no inserts for a short raw observation, got %d", len(pirepColl.BulkModels))
+	}
+}
