@@ -122,6 +122,7 @@ func PilotFeed(
 		if pilot != "" && !ok {
 			toDelete = append(toDelete, pilot)
 			deletePipeline.Publish(ctx, "PILOT:DELETE", pilot)
+			deletePipeline.Del(ctx, "PILOT:"+pilot)
 		}
 	}
 

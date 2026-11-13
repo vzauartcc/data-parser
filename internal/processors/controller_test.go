@@ -86,6 +86,11 @@ func TestControllerFeed(t *testing.T) {
 		t.Errorf("Expected delete publish for ORD_APP, but it wasn't found in: %v", mockPipe.RecordedCmds)
 	}
 
+	foundDel := slices.Contains(mockPipe.ExpiredKeys, "CONTROLLER:ORD_APP")
+	if !foundDel {
+		t.Errorf("Expected CONTROLLER:ORD_APP hash to be deleted, got %v", mockPipe.ExpiredKeys)
+	}
+
 	if atcColl.DeletedFilter == nil {
 		t.Error("Mongo DeleteMany was not called")
 	}

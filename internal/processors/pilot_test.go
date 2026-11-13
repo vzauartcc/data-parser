@@ -2,6 +2,7 @@ package processors
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/vzauartcc/data-parser/internal/cache"
@@ -66,6 +67,11 @@ func TestPilotFeed_Full(t *testing.T) {
 
 	if !hasDeletePublish {
 		t.Error("Missing Redis Publish for deleted pilot DAL200")
+	}
+
+	foundDel := slices.Contains(mockPipe.ExpiredKeys, "PILOT:DAL200")
+	if !foundDel {
+		t.Errorf("Expected PILOT:DAL200 hash to be deleted, got %v", mockPipe.ExpiredKeys)
 	}
 }
 
