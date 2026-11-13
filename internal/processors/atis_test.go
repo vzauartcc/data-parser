@@ -8,7 +8,10 @@ import (
 	"github.com/vzauartcc/data-parser/internal/datafeed"
 )
 
-const testAirportKMDW = "KMDW"
+const (
+	testAirportKMDW      = "KMDW"
+	testAirportThreeChar = "05C"
+)
 
 func TestAtisFeed(t *testing.T) {
 	mockPipe := &cache.MockPipeline{
@@ -71,5 +74,23 @@ func TestAtisFeed_ExpiredAirports(t *testing.T) {
 
 	if !foundDelete {
 		t.Error("Expected KMDW to be identified as expired")
+	}
+}
+
+func TestAtisFeed_ThreeCharAirport(t *testing.T) {
+	mockPipe := &cache.MockPipeline{Published: make(map[string]string)}
+	client := &cache.MockRedis{Pipe: mockPipe}
+
+	data := []datafeed.VatsimATIS{
+		{Callsign: testAirportThreeChar + "_ATIS", ATISCode: "A"},
+	}
+
+	err := AtisFeed(context.Background(), data, client)
+	if err != nil {
+		t.Fatalf("AtisFeed failed: %v", err)
+	}
+
+	if mockPipe.Published["ATIS:"+testAirportThreeChar] != "A" {
+		t.Errorf("Expected ATIS:%s to be published, got %v", testAirportThreeChar, mockPipe.Published)
 	}
 }

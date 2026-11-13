@@ -22,17 +22,15 @@ func AtisFeed(ctx context.Context, atiss []datafeed.VatsimATIS, redisClient cach
 	pipe := redisClient.Pipeline()
 
 	for _, atis := range atiss {
-		if len(atis.Callsign) < 4 {
+		airport, _, _ := strings.Cut(atis.Callsign, "_")
+		if airport == "" || strings.TrimSpace(atis.ATISCode) == "" || !config.Airports[airport] {
 			continue
 		}
 
-		airport := atis.Callsign[0:4]
-		if strings.TrimSpace(atis.ATISCode) != "" && config.Airports[airport] {
-			activeAirports = append(activeAirports, airport)
+		activeAirports = append(activeAirports, airport)
 
-			pipe.Expire(ctx, "ATIS:"+airport, 65*time.Second)
-			pipe.Publish(ctx, "ATIS:"+airport, atis.ATISCode)
-		}
+		pipe.Expire(ctx, "ATIS:"+airport, 65*time.Second)
+		pipe.Publish(ctx, "ATIS:"+airport, atis.ATISCode)
 	}
 
 	var expiredAirports []string
