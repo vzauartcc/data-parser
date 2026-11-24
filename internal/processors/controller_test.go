@@ -2,65 +2,51 @@ package processors
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
-	"time"
 
-	"github.com/vzauartcc/data-parser/internal/cache"
-	"github.com/vzauartcc/data-parser/internal/database"
+	"github.com/redis/go-redis/v9"
 	"github.com/vzauartcc/data-parser/internal/datafeed"
-	"github.com/vzauartcc/data-parser/internal/models"
 )
 
 const (
 	testCallsignZOBApp  = "ZOB_APP"
 	testCallsignORDGnd  = "ORD_GND"
+	testCallsignORDApp  = "ORD_APP"
+	testCallsignORDTwr  = "ORD_TWR"
+	testArtccZOB        = "ZOB"
 	testUserFirstName   = "John"
 	testUserLastName    = "Doe"
 	testCollectionATC   = "atcOnline"
 	testCollectionUsers = "users"
 	testCollectionHours = "controllerHours"
-	testArtccZOB        = "ZOB"
 )
 
 func TestControllerFeed(t *testing.T) {
 	ctx := context.Background()
+	helper := NewRedisTestHelper(t)
+	client := helper.Client
 
-	atcColl := &database.MockCollection{}
-	userColl := &database.MockCollection{
-		MockData: []any{
-			models.User{CID: 1234567, FirstName: testUserFirstName, LastName: testUserLastName},
-		},
-	}
-	sessionColl := &database.MockCollection{
-		MockData: []any{
-			models.ControllerHours{
-				CID:          1234567,
-				TimeStart:    time.Now().Add(-2 * time.Hour),
-				TimeEnd:      time.Now(),
-				Position:     testCallsignORDGnd,
-				IsStudent:    false,
-				IsInstructor: false,
-				WentInactive: false,
-			},
-		},
-	}
+	mongoMock, atcColl := SetupControllerMongoMock(t, ControllerMockConfig{
+		CID:             1234567,
+		UserFirstName:   testUserFirstName,
+		UserLastName:    testUserLastName,
+		Position:        testCallsignORDGnd,
+		CollectionATC:   testCollectionATC,
+		CollectionUsers: testCollectionUsers,
+		CollectionHours: testCollectionHours,
+	})
 
-	mongoMock := &database.MockMongoDatabase{
-		Collections: map[string]*database.MockCollection{
-			testCollectionATC:   atcColl,
-			testCollectionUsers: userColl,
-			testCollectionHours: sessionColl,
-		},
+	// Pre-seed: ORD_GND is in the main controllers set (simulating previously active).
+	// The feed will have ORD_APP active, so ORD_GND should be expired/cleaned up.
+	_, err := helper.Mr.SAdd("controllers", testCallsignORDGnd)
+	if err != nil {
+		t.Fatalf("failed to seed controllers: %v", err)
 	}
 
-	mockPipe := &cache.MockPipeline{
-		Published:    make(map[string]string),
-		DiffResponse: []string{"ORD_APP"},
-	}
-	redisMock := &cache.MockRedis{
-		Pipe: mockPipe,
-	}
+	// Pre-seed the CONTROLLER:ORD_GND hash so we can verify it gets deleted.
+	helper.Mr.HSet("CONTROLLER:"+testCallsignORDGnd, "cid", "1234567")
 
 	controllers := []datafeed.VnasUser{
 		{
@@ -69,71 +55,72 @@ func TestControllerFeed(t *testing.T) {
 				ArtccID:  "ZAU",
 				IsActive: true,
 				VatsimData: datafeed.VnasVatsimData{
-					Callsign: testCallsignORDGnd,
+					Callsign: testCallsignORDApp, // ORD_APP is active, ORD_GND should be cleaned up
 				},
 			},
 		},
 	}
 
-	err := ControllerFeed(ctx, controllers, mongoMock, redisMock)
+	// Subscribe to CONTROLLER:UPDATE BEFORE calling ControllerFeed.
+	sub := client.Subscribe(ctx, "CONTROLLER:UPDATE")
+
+	err = ControllerFeed(ctx, controllers, mongoMock, client)
 	if err != nil {
 		t.Fatalf("ControllerFeed failed: %v", err)
 	}
 
-	foundDelete := slices.Contains(mockPipe.RecordedCmds, "PUBLISH:CONTROLLER:DELETE:ORD_APP")
-
-	if !foundDelete {
-		t.Errorf("Expected delete publish for ORD_APP, but it wasn't found in: %v", mockPipe.RecordedCmds)
+	// Verify CONTROLLER:UPDATE was published for the active controller.
+	if got := waitForChannel(t, sub, "CONTROLLER:UPDATE"); got != testCallsignORDApp {
+		t.Errorf("expected CONTROLLER:UPDATE payload %q, got %q", testCallsignORDApp, got)
 	}
 
-	foundDel := slices.Contains(mockPipe.ExpiredKeys, "CONTROLLER:ORD_APP")
-	if !foundDel {
-		t.Errorf("Expected CONTROLLER:ORD_APP hash to be deleted, got %v", mockPipe.ExpiredKeys)
+	sub.Close()
+
+	// Verify ORD_GND was deleted (expired).
+	members, err := client.SMembers(ctx, "controllers").Result()
+	if err != nil {
+		t.Fatalf("failed to get controllers members: %v", err)
 	}
 
+	if slices.Contains(members, testCallsignORDGnd) {
+		t.Errorf("Expected %s to be removed from controllers set", testCallsignORDGnd)
+	}
+
+	// Verify CONTROLLER:ORD_GND key was deleted.
+	if helper.Mr.Exists("CONTROLLER:" + testCallsignORDGnd) {
+		t.Errorf("Expected CONTROLLER:%s hash to be deleted", testCallsignORDGnd)
+	}
+
+	// Verify MongoDB DeleteMany was called.
 	if atcColl.DeletedFilter == nil {
 		t.Error("Mongo DeleteMany was not called")
+	}
+
+	// Verify MongoDB upsert was called for the active controller.
+	if got := len(atcColl.BulkModels); got != 1 {
+		t.Errorf("expected 1 Mongo upsert model, got %d", got)
 	}
 }
 
 func TestControllerFeed_Neighbors(t *testing.T) {
 	ctx := context.Background()
+	helper := NewRedisTestHelper(t)
+	client := helper.Client
 
-	atcColl := &database.MockCollection{}
-	userColl := &database.MockCollection{
-		MockData: []any{
-			models.User{CID: 1234567, FirstName: "John", LastName: testUserLastName},
-		},
-	}
-	sessionColl := &database.MockCollection{
-		MockData: []any{
-			models.ControllerHours{
-				CID:          1234567,
-				TimeStart:    time.Now().Add(-2 * time.Hour),
-				TimeEnd:      time.Now(),
-				Position:     testCallsignZOBApp,
-				IsStudent:    false,
-				IsInstructor: false,
-				WentInactive: false,
-			},
-		},
-	}
+	mongoMock, _ := SetupControllerMongoMock(t, ControllerMockConfig{
+		CID:             1234567,
+		UserFirstName:   testUserFirstName,
+		UserLastName:    testUserLastName,
+		Position:        testCallsignORDGnd,
+		CollectionATC:   testCollectionATC,
+		CollectionUsers: testCollectionUsers,
+		CollectionHours: testCollectionHours,
+	})
 
-	mongoMock := &database.MockMongoDatabase{
-		Collections: map[string]*database.MockCollection{
-			testCollectionATC:   atcColl,
-			testCollectionUsers: userColl,
-			testCollectionHours: sessionColl,
-		},
-	}
-
-	mockPipe := &cache.MockPipeline{
-		Published:    make(map[string]string),
-		DiffResponse: []string{testCallsignZOBApp},
-	}
-	redisMock := &cache.MockRedis{
-		Pipe: mockPipe,
-		Data: make(map[string]string),
+	// Pre-seed: a ZAU controller (ORD_TWR) in the controllers set.
+	_, err := helper.Mr.SAdd("controllers", testCallsignORDTwr)
+	if err != nil {
+		t.Fatalf("failed to seed controllers: %v", err)
 	}
 
 	controllers := []datafeed.VnasUser{
@@ -149,12 +136,13 @@ func TestControllerFeed_Neighbors(t *testing.T) {
 		},
 	}
 
-	err := ControllerFeed(ctx, controllers, mongoMock, redisMock)
+	err = ControllerFeed(ctx, controllers, mongoMock, client)
 	if err != nil {
 		t.Fatalf("ControllerFeed failed: %v", err)
 	}
 
-	neighbors, err := redisMock.Get(ctx, "neighbors").Result()
+	// Verify neighbors was set to ZOB.
+	neighbors, err := client.Get(ctx, "neighbors").Result()
 	if err != nil || neighbors != "ZOB" {
 		t.Errorf("Expected neighbors to be 'ZOB', got '%s'", neighbors)
 	}
@@ -162,45 +150,26 @@ func TestControllerFeed_Neighbors(t *testing.T) {
 
 func TestControllerFeed_NeighborsCleared(t *testing.T) {
 	ctx := context.Background()
+	helper := NewRedisTestHelper(t)
+	client := helper.Client
 
-	atcColl := &database.MockCollection{}
-	userColl := &database.MockCollection{
-		MockData: []any{
-			models.User{CID: 1234567, FirstName: testUserFirstName, LastName: testUserLastName},
-		},
-	}
-	sessionColl := &database.MockCollection{
-		MockData: []any{
-			models.ControllerHours{
-				CID:          1234567,
-				TimeStart:    time.Now().Add(-2 * time.Hour),
-				TimeEnd:      time.Now(),
-				Position:     testCallsignZOBApp,
-				IsStudent:    false,
-				IsInstructor: false,
-				WentInactive: false,
-			},
-		},
+	mongoMock, _ := SetupControllerMongoMock(t, ControllerMockConfig{
+		CID:             1234567,
+		UserFirstName:   testUserFirstName,
+		UserLastName:    testUserLastName,
+		Position:        testCallsignORDGnd,
+		CollectionATC:   testCollectionATC,
+		CollectionUsers: testCollectionUsers,
+		CollectionHours: testCollectionHours,
+	})
+
+	// Pre-seed: a ZAU controller (ORD_TWR) in the controllers set.
+	_, err := helper.Mr.SAdd("controllers", testCallsignORDTwr)
+	if err != nil {
+		t.Fatalf("failed to seed controllers: %v", err)
 	}
 
-	mongoMock := &database.MockMongoDatabase{
-		Collections: map[string]*database.MockCollection{
-			testCollectionATC:   atcColl,
-			testCollectionUsers: userColl,
-			testCollectionHours: sessionColl,
-		},
-	}
-
-	mockPipe := &cache.MockPipeline{
-		Published:    make(map[string]string),
-		DiffResponse: []string{testCallsignZOBApp},
-	}
-	redisMock := &cache.MockRedis{
-		Pipe: mockPipe,
-		Data: make(map[string]string),
-	}
-
-	// First feed: has a ZOB controller
+	// First feed: has a ZOB controller.
 	controllers := []datafeed.VnasUser{
 		{
 			CID: 1234567,
@@ -214,17 +183,17 @@ func TestControllerFeed_NeighborsCleared(t *testing.T) {
 		},
 	}
 
-	err := ControllerFeed(ctx, controllers, mongoMock, redisMock)
+	err = ControllerFeed(ctx, controllers, mongoMock, client)
 	if err != nil {
 		t.Fatalf("ControllerFeed failed: %v", err)
 	}
 
-	// Verify neighbors was set to ZOB
-	if redisMock.SetCalls["neighbors"] != "ZOB" {
-		t.Errorf("Expected neighbors to be 'ZOB', got '%s'", redisMock.SetCalls["neighbors"])
+	// Verify neighbors was set to ZOB.
+	if val, _ := client.Get(ctx, "neighbors").Result(); val != "ZOB" {
+		t.Errorf("Expected neighbors to be 'ZOB', got '%s'", val)
 	}
 
-	// Second feed: only ZAU controller (no neighbor)
+	// Second feed: only ZAU controller (no neighbor).
 	controllers2 := []datafeed.VnasUser{
 		{
 			CID: 1234568,
@@ -238,14 +207,14 @@ func TestControllerFeed_NeighborsCleared(t *testing.T) {
 		},
 	}
 
-	err = ControllerFeed(ctx, controllers2, mongoMock, redisMock)
+	err = ControllerFeed(ctx, controllers2, mongoMock, client)
 	if err != nil {
 		t.Fatalf("ControllerFeed failed: %v", err)
 	}
 
-	// Verify neighbors was cleared (Del was called)
-	found := slices.Contains(redisMock.DelCalls, "neighbors")
-	if !found {
-		t.Errorf("Expected neighbors to be deleted, DelCalls: %v", redisMock.DelCalls)
+	// Verify neighbors was cleared (Del was called).
+	_, err = client.Get(ctx, "neighbors").Result()
+	if !errors.Is(err, redis.Nil) {
+		t.Errorf("Expected neighbors to be deleted, got: %v", err)
 	}
 }

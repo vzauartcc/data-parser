@@ -3,9 +3,9 @@ package processors
 import (
 	"context"
 	"testing"
+	"time"
 
 	metartafparser "github.com/ryansavara/go-metar-taf-parser"
-	"github.com/vzauartcc/data-parser/internal/cache"
 )
 
 const testStationKMDW = "KMDW"
@@ -16,7 +16,6 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 	tests := []struct {
 		name           string
 		input          []metartafparser.Metar
-		expectedCmds   []string
 		expectedLength int
 	}{
 		{
@@ -26,17 +25,11 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 				{Station: "BAD", Message: "BAD"},
 				{Station: testStationKMDW, Message: testStationKMDW + " 121600Z"},
 			},
-			expectedCmds: []string{
-				"SET:METAR:KORD",
-				"SET:METAR:BAD",
-				"SET:METAR:" + testStationKMDW,
-			},
 			expectedLength: 3,
 		},
 		{
 			name:           "handles empty input",
 			input:          []metartafparser.Metar{},
-			expectedCmds:   nil,
 			expectedLength: 0,
 		},
 		{
@@ -46,34 +39,28 @@ func TestMetarFeed_CustomMock(t *testing.T) {
 				{Station: "A", Message: "A"},
 				{Station: "", Message: ""},
 			},
-			expectedCmds:   nil,
 			expectedLength: 0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockPipe := &cache.MockPipeline{
-				Published: make(map[string]string),
-			}
-			mockRedis := &cache.MockRedis{
-				Pipe: mockPipe,
-				Data: make(map[string]string),
-			}
+			helper := NewRedisTestHelper(t)
+			client := helper.Client
 
-			err := MetarFeed(ctx, tt.input, mockRedis)
+			err := MetarFeed(ctx, tt.input, client)
 			if err != nil {
 				t.Fatalf("MetarFeed failed unexpectedly: %v", err)
 			}
 
-			if mockPipe.Len() != tt.expectedLength {
-				t.Errorf("Expected %d commands, got %d", tt.expectedLength, mockPipe.Len())
+			// Check the actual keys in Redis.
+			keys, err := client.Keys(ctx, "METAR:*").Result()
+			if err != nil {
+				t.Fatalf("failed to get keys: %v", err)
 			}
 
-			for i, cmd := range tt.expectedCmds {
-				if mockPipe.RecordedCmds[i] != cmd {
-					t.Errorf("At index %d: expected command %s, got %s", i, cmd, mockPipe.RecordedCmds[i])
-				}
+			if len(keys) != tt.expectedLength {
+				t.Errorf("Expected %d METAR keys, got %d: %v", tt.expectedLength, len(keys), keys)
 			}
 		})
 	}
@@ -109,21 +96,22 @@ func TestMetarFeed_StationCodeLength(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockPipe := &cache.MockPipeline{
-				Published: make(map[string]string),
-			}
-			mockRedis := &cache.MockRedis{
-				Pipe: mockPipe,
-				Data: make(map[string]string),
-			}
+			ctx := context.Background()
+			helper := NewRedisTestHelper(t)
+			client := helper.Client
 
-			err := MetarFeed(context.Background(), tt.input, mockRedis)
+			err := MetarFeed(ctx, tt.input, client)
 			if err != nil {
 				t.Fatalf("MetarFeed failed: %v", err)
 			}
 
-			if mockPipe.Len() != tt.expectedLength {
-				t.Errorf("Expected %d commands, got %d", tt.expectedLength, mockPipe.Len())
+			keys, err := client.Keys(ctx, "METAR:*").Result()
+			if err != nil {
+				t.Fatalf("failed to get keys: %v", err)
+			}
+
+			if len(keys) != tt.expectedLength {
+				t.Errorf("Expected %d METAR keys, got %d: %v", tt.expectedLength, len(keys), keys)
 			}
 		})
 	}
@@ -131,20 +119,69 @@ func TestMetarFeed_StationCodeLength(t *testing.T) {
 
 func TestExtendMetarTTL(t *testing.T) {
 	ctx := context.Background()
+	helper := NewRedisTestHelper(t)
+	client := helper.Client
 
-	mockData := map[string]string{
-		"METAR:KORD":               "data1",
-		"METAR:" + testStationKMDW: "data2",
-		"OTHER:KEY":                "data3",
+	// Pre-seed some METAR keys.
+	err := helper.Mr.Set("METAR:KORD", "data1")
+	if err != nil {
+		t.Fatalf("failed to seed METAR:KORD: %v", err)
 	}
 
-	mockPipe := &cache.MockPipeline{
-		Published: make(map[string]string),
+	err = helper.Mr.Set("METAR:"+testStationKMDW, "data2")
+	if err != nil {
+		t.Fatalf("failed to seed METAR:%s: %v", testStationKMDW, err)
 	}
 
-	client := &cache.MockRedis{
-		Data: mockData,
-		Pipe: mockPipe,
+	err = helper.Mr.Set("OTHER:KEY", "data3")
+	if err != nil {
+		t.Fatalf("failed to seed OTHER:KEY: %v", err)
+	}
+
+	err = ExtendMetarTTL(ctx, client)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Verify METAR keys have TTL set to 10 minutes.
+	expectedTTL := 10 * time.Minute
+	if got := helper.Mr.TTL("METAR:KORD"); got != expectedTTL {
+		t.Errorf("expected 10m TTL for METAR:KORD, got %v", got)
+	}
+
+	if got := helper.Mr.TTL("METAR:" + testStationKMDW); got != expectedTTL {
+		t.Errorf("expected 10m TTL for METAR:%s, got %v", testStationKMDW, got)
+	}
+
+	// Verify OTHER:KEY TTL was not changed (miniredis returns 0 for keys without TTL).
+	if got := helper.Mr.TTL("OTHER:KEY"); got != 0 {
+		t.Errorf("OTHER:KEY TTL changed: %v", got)
+	}
+
+	// Verify OTHER:KEY value was not touched.
+	val, err := client.Get(ctx, "OTHER:KEY").Result()
+	if err != nil {
+		t.Errorf("OTHER:KEY should still exist: %v", err)
+	}
+
+	if val != "data3" {
+		t.Errorf("OTHER:KEY value changed: %s", val)
+	}
+}
+
+func TestExtendMetarTTL_MultiPageScan(t *testing.T) {
+	ctx := context.Background()
+	helper := NewRedisTestHelper(t)
+	client := helper.Client
+
+	// Seed 150 METAR keys (batch size is 100 in production, so this tests multi-page scan).
+	for i := range 150 {
+		key := "METAR:K" + string(rune('A'+i%26)) + string(rune('0'+i/26%10))
+
+		err := helper.Mr.Set(key, "data")
+		if err != nil {
+			t.Fatalf("failed to seed %s: %v", key, err)
+		}
 	}
 
 	err := ExtendMetarTTL(ctx, client)
@@ -152,8 +189,21 @@ func TestExtendMetarTTL(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	expectedKeys := 2
-	if len(mockPipe.ExpiredKeys) != expectedKeys {
-		t.Errorf("expected %d expired keys, got %d", expectedKeys, len(mockPipe.ExpiredKeys))
+	// Verify all 150 keys have TTL set to 10 minutes.
+	expectedTTL := 10 * time.Minute
+
+	keys, err := client.Keys(ctx, "METAR:*").Result()
+	if err != nil {
+		t.Fatalf("failed to get keys: %v", err)
+	}
+
+	if len(keys) != 150 {
+		t.Fatalf("expected 150 keys, got %d", len(keys))
+	}
+
+	for _, key := range keys {
+		if got := helper.Mr.TTL(key); got != expectedTTL {
+			t.Errorf("key %s: expected 10m TTL, got %v", key, got)
+		}
 	}
 }
